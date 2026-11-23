@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-theme-choice="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AEM Orbit — Options</title>
+  <link rel="stylesheet" href="../ui/dialog.css" />
+  <style>
+    /* ── Theme tokens & variables ────────────────────────────────────────────── */
+    :root {
+      --bg:             #f8fafc;
+      --bg-gradient:    radial-gradient(900px 320px at 50% 0px, rgba(235, 16, 0, 0.05), transparent 70%), #f8fafc;
+      --surface:        rgba(255, 255, 255, 0.85);
+      --surface-card:   #ffffff;
+      --surface-2:      rgba(0, 0, 0, 0.035);
+      --surface-hover:  rgba(0, 0, 0, 0.05);
+      --surface-active: rgba(0, 0, 0, 0.08);
+      --border:         rgba(0, 0, 0, 0.09);
+      --border-2:       rgba(0, 0, 0, 0.05);
+      --border-glow:    rgba(15, 98, 254, 0.25);
+      --text:           #0f172a;
+      --text-2:         #334155;
+      --text-muted:     #64748b;
+      --text-faint:     #94a3b8;
+      --input-bg:       #ffffff;
+      --input-border:   rgba(0, 0, 0, 0.14);
+      --input-text:     #0f172a;
+      --auth-bg:        rgba(0, 0, 0, 0.04);
+      --toggle-off:     #cbd5e1;
+      --code-bg:        #e2e8f0;
+      --order-bg:       rgba(255, 255, 255, 0.9);
+      --order-hover:    #f1f5f9;
+      --order-drag:     #0f62fe;
+      --drag-handle:    #94a3b8;
+      --accent:         #0f62fe;
+      --accent-hover:   #0043ce;
+      --accent-glow:    rgba(15, 98, 254, 0.35);
+      --status-ok-bg:   rgba(25, 128, 56, 0.1);
+      --status-ok-fg:   #0f6b29;
+      --status-ok-bd:   rgba(25, 128, 56, 0.25);
+      --status-err-bg:  rgba(218, 30, 40, 0.1);
+      --status-err-fg:  #b81921;
+      --status-err-bd:  rgba(218, 30, 40, 0.25);
+      --btn-sec-bg:     rgba(0, 0, 0, 0.05);
+      --btn-sec-fg:     #1e293b;
+      --btn-sec-hover:  rgba(0, 0, 0, 0.09);
+      --btn-sec-bd:     rgba(0, 0, 0, 0.1);
+      --shadow:         0 4px 20px -2px rgba(0, 0, 0, 0.05);
+      --card-shadow:    0 2px 8px -1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+      --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    [data-theme="dark"] {
+      --bg:             #0d0f14;
+      --bg-gradient:    radial-gradient(900px 320px at 50% 0px, rgba(235, 16, 0, 0.09), transparent 70%), #0d0f14;
+      --surface:        rgba(22, 26, 35, 0.75);
+      --surface-card:   rgba(23, 27, 36, 0.85);
+      --surface-2:      rgba(255, 255, 255, 0.04);
+      --surface-hover:  rgba(255, 255, 255, 0.07);
+      --surface-active: rgba(255, 255, 255, 0.1);
+      --border:         rgba(255, 255, 255, 0.09);
+      --border-2:       rgba(255, 255, 255, 0.05);
+      --border-glow:    rgba(69, 137, 255, 0.35);
+      --text:           #f8fafc;
+      --text-2:         #cbd5e1;
+      --text-muted:     #94a3b8;
+      --text-faint:     #64748b;
+      --input-bg:       rgba(15, 18, 24, 0.85);
+      --input-border:   rgba(255, 255, 255, 0.12);
+      --input-text:     #f8fafc;
+      --auth-bg:        rgba(0, 0, 0, 0.25);
+      --toggle-off:     #475569;
+      --code-bg:        rgba(255, 255, 255, 0.08);
+      --order-bg:       rgba(23, 27, 36, 0.7);
+      --order-hover:    rgba(69, 137, 255, 0.1);
+      --order-drag:     #4589ff;
+      --drag-handle:    #64748b;
+      --accent:         #0f62fe;
+      --accent-hover:   #0353e9;
+      --accent-glow:    rgba(69, 137, 255, 0.4);
+      --status-ok-bg:   rgba(66, 190, 101, 0.12);
+      --status-ok-fg:   #56d364;
+      --status-ok-bd:   rgba(66, 190, 101, 0.3);
+      --status-err-bg:  rgba(250, 77, 86, 0.12);
+      --status-err-fg:  #ff8389;
+      --status-err-bd:  rgba(250, 77, 86, 0.3);
+      --btn-sec-bg:     rgba(255, 255, 255, 0.06);
+      --btn-sec-fg:     #f8fafc;
+      --btn-sec-hover:  rgba(255, 255, 255, 0.1);
+      --btn-sec-bd:     rgba(255, 255, 255, 0.1);
+      --shadow:         0 8px 32px rgba(0, 0, 0, 0.45);
+      --card-shadow:    0 4px 16px -2px rgba(0, 0, 0, 0.35);
+      --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Reset & Base ────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--bg-gradient);
+      line-height: 1.5;
+      min-height: 100vh;
+      transition: background 0.2s ease, color 0.2s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .header-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #eb1000 0%, #ff5a36 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(235, 16, 0, 0.35);
+    }
+    .header-text { flex: 1; min-width: 0; }
+    .title-row { display: flex; align-items: center; gap: 12px; }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Theme toggle */
+    .theme-toggle {
+      all: unset;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--card-shadow);
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .theme-toggle:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+      border-color: var(--border-glow);
+      transform: translateY(-1px);
+    }
+    .theme-toggle svg { fill: currentColor; }
+    /* The icon shows the current choice: auto (half disc), light (sun), dark (moon). */
+    #theme-toggle svg { display: none; }
+    [data-theme-choice="auto"]  #theme-toggle .icon-auto,
+    [data-theme-choice="light"] #theme-toggle .icon-sun,
+    [data-theme-choice="dark"]  #theme-toggle .icon-moon { display: block; }
+
+    /* ── Tabs row ────────────────────────────────────────────────────────────── */
+    .tabs-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 5px 6px;
+      box-shadow: var(--card-shadow);
+      flex-wrap: wrap;
+    }
+    .tabs { display: flex; flex: 1; flex-wrap: wrap; gap: 4px; }
+    .tab {
+      all: unset;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-radius: 8px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .tab:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .tab.active {
+      color: var(--text);
+      background: var(--surface-card);
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border);
+    }
+    /* Tab active colored indicators */
+    .tab-local.active  { color: #0f62fe; }
+    .tab-dev.active    { color: #007d79; }
+    .tab-stage.active  { color: #b28600; }
+    .tab-prod.active   { color: #da1e28; }
+    .tab-custom.active { color: #8a3ffc; }
+    [data-theme="dark"] .tab-local.active  { color: #78a9ff; }
+    [data-theme="dark"] .tab-dev.active    { color: #3ddbd9; }
+    [data-theme="dark"] .tab-stage.active  { color: #f1c21b; }
+    [data-theme="dark"] .tab-prod.active   { color: #ff8389; }
+    [data-theme="dark"] .tab-custom.active { color: #d4bbff; }
+
+    .btn-add-env {
+      all: unset;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--surface-2);
+      border: 1px dashed var(--border);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-add-env:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+      color: var(--accent-hover);
+    }
+    [data-theme="dark"] .btn-add-env { color: #78a9ff; }
+
+    /* ── Panels ──────────────────────────────────────────────────────────────── */
+    .env-panel { display: none; padding-top: 4px; }
+    .env-panel.visible { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Section card ────────────────────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* ── Form groups ─────────────────────────────────────────────────────────── */
+    .form-group {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-2);
+    }
+    .form-group:last-child { border-bottom: none; padding-bottom: 0; }
+    .form-group:first-child { padding-top: 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    label span.req { color: #fa4d56; margin-left: 2px; }
+
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--input-text);
+      background: var(--input-bg);
+      resize: vertical;
+      line-height: 1.5;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--border-glow);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"] {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--input-text);
+      background: var(--input-bg);
+      transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+    }
+    input[type="text"]::placeholder,
+    input[type="password"]::placeholder,
+    input[type="url"]::placeholder { color: var(--text-faint); }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--border-glow);
+    }
+
+    /* ── Number stepper (Request timeout) ────────────────────────────────────── */
+    .stepper {
+      display: inline-flex;
+      align-items: stretch;
+      height: 38px;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      background: var(--input-bg);
+      overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .stepper:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--border-glow);
+    }
+    .stepper-btn {
+      all: unset;
+      box-sizing: border-box;
+      width: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      transition: background-color 0.15s, color 0.15s;
+    }
+    .stepper-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+    .stepper-btn:active:not(:disabled) { background: var(--surface-active); }
+    .stepper-btn:disabled { opacity: 0.35; cursor: default; }
+    .stepper-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .stepper-btn:first-child { border-right: 1px solid var(--input-border); }
+    .stepper-btn:last-child  { border-left:  1px solid var(--input-border); }
+    .stepper input[type="number"] {
+      width: 64px;
+      height: auto;
+      padding: 0 4px;
+      border: 0;
+      border-radius: 0;
+      outline: none;
+      box-shadow: none;
+      background: transparent;
+      color: var(--input-text);
+      font: inherit;
+      font-size: 13px;
+      text-align: right;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    .stepper input[type="number"]::-webkit-inner-spin-button,
+    .stepper input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .stepper input[type="number"]::placeholder { color: var(--text-faint); }
+    .stepper input[type="number"]:focus { border: 0; box-shadow: none; }
+    .stepper-unit {
+      align-self: center;
+      padding: 0 10px 0 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .field-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.45;
+    }
+
+    /* ── Auth selector ───────────────────────────────────────────────────────── */
+    .auth-selector {
+      display: inline-flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+      margin-bottom: 14px;
+    }
+    .auth-option {
+      all: unset;
+      cursor: pointer;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      color: var(--text-muted);
+      border-radius: 7px;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+    .auth-option:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .auth-option.selected {
+      background: rgba(15, 98, 254, 0.12);
+      color: #0043ce;
+      border: 1px solid rgba(15, 98, 254, 0.3);
+      box-shadow: 0 2px 6px rgba(15, 98, 254, 0.15);
+    }
+    [data-theme="dark"] .auth-option.selected {
+      background: rgba(69, 137, 255, 0.18);
+      color: #78a9ff;
+      border: 1px solid rgba(69, 137, 255, 0.45);
+      box-shadow: 0 2px 8px rgba(15, 98, 254, 0.25);
+    }
+    .auth-fields { display: none; }
+    .auth-fields.visible { display: block; animation: fadeIn 0.15s ease; }
+
+    /* ── Toggles ─────────────────────────────────────────────────────────────── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-2);
+      gap: 16px;
+    }
+    .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .toggle-row:first-child { padding-top: 0; }
+    .toggle-row.is-disabled { opacity: 0.5; }
+    .toggle-row.is-disabled .toggle-slider { cursor: not-allowed; }
+    .toggle-label { font-size: 13px; color: var(--text); font-weight: 500; }
+    .toggle-desc  { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--toggle-off);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; left: 3px; top: 3px;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    }
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* ── Connection test ─────────────────────────────────────────────────────── */
+    .test-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot.unknown  { background: var(--text-faint); }
+    .dot.ok       { background: #42be65; box-shadow: 0 0 8px rgba(66, 190, 101, 0.5); }
+    .dot.fail     { background: #fa4d56; box-shadow: 0 0 8px rgba(250, 77, 86, 0.5); }
+    .dot.checking { background: #f1c21b; box-shadow: 0 0 8px rgba(241, 194, 27, 0.5); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; transform: scale(1); } 50% { opacity:0.4; transform: scale(0.9); } }
+    .conn-status-text { font-size: 12px; color: var(--text-muted); }
+    .btn.diag-btn { margin-left: 10px; }
+    .diag-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .diag-row { display: flex; align-items: center; gap: 8px; }
+    .diag-name { font-size: 12px; font-weight: 600; min-width: 110px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      margin: -32px -24px 20px;
+      padding: 16px 24px 12px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar .header { margin-bottom: 0; }
+    .topbar .header .btn { flex-shrink: 0; }
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 28px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .dirty-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .dirty-note[hidden] { display: none; }
+    .dirty-dot { width: 7px; height: 7px; border-radius: 50%; background: #f1c21b; }
+    .menu-wrap { position: relative; flex-shrink: 0; }
+    .menu-pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 210px;
+      padding: 4px;
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      z-index: 40;
+    }
+    .menu-pop[hidden] { display: none; }
+    .menu-item {
+      all: unset;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .menu-item svg { color: var(--text-muted); flex-shrink: 0; }
+    .menu-item:hover, .menu-item:focus-visible { background: var(--surface-hover); }
+    .menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .btn {
+      all: unset;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary {
+      background: rgba(15, 98, 254, 0.10);
+      color: #0043ce;
+      border: 1px solid rgba(15, 98, 254, 0.3);
+      box-shadow: 0 2px 8px rgba(15, 98, 254, 0.1);
+    }
+    .btn-primary:hover {
+      background: rgba(15, 98, 254, 0.16);
+      border-color: rgba(15, 98, 254, 0.5);
+      color: #002d9c;
+      box-shadow: 0 4px 12px rgba(15, 98, 254, 0.2);
+    }
+    [data-theme="dark"] .btn-primary {
+      background: rgba(69, 137, 255, 0.16);
+      color: #78a9ff;
+      border: 1px solid rgba(69, 137, 255, 0.4);
+      box-shadow: 0 2px 10px rgba(15, 98, 254, 0.2);
+    }
+    [data-theme="dark"] .btn-primary:hover {
+      background: rgba(69, 137, 255, 0.26);
+      border-color: rgba(69, 137, 255, 0.65);
+      color: #a8c7fa;
+      box-shadow: 0 4px 16px rgba(15, 98, 254, 0.3);
+    }
+    .btn-secondary {
+      background: var(--btn-sec-bg);
+      color: var(--btn-sec-fg);
+      border: 1px solid var(--btn-sec-bd);
+      backdrop-filter: blur(12px);
+    }
+    .btn-secondary:hover {
+      background: var(--btn-sec-hover);
+      border-color: var(--border-glow);
+    }
+    .btn-sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 7px; }
+    .btn-danger {
+      background: rgba(250, 77, 86, 0.08);
+      color: #fa4d56;
+      border: 1px solid rgba(250, 77, 86, 0.3);
+      border-radius: 8px;
+    }
+    .btn-danger:hover {
+      background: rgba(250, 77, 86, 0.16);
+      border-color: #fa4d56;
+    }
+
+    /* ── Status banner ───────────────────────────────────────────────────────── */
+    .status-banner {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      backdrop-filter: blur(12px);
+      animation: fadeIn 0.2s ease;
+    }
+    .status-banner.success {
+      display: flex;
+      background: var(--status-ok-bg);
+      color: var(--status-ok-fg);
+      border: 1px solid var(--status-ok-bd);
+    }
+    .status-banner.error {
+      display: flex;
+      background: var(--status-err-bg);
+      color: var(--status-err-fg);
+      border: 1px solid var(--status-err-bd);
+    }
+
+    code {
+      background: var(--code-bg);
+      color: var(--text-2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* ── Custom env label input ──────────────────────────────────────────────── */
+    .custom-env-label-input {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #a56eff;
+      border: none;
+      border-bottom: 1.5px dashed var(--border);
+      background: transparent;
+      outline: none;
+      width: 170px;
+      padding: 2px 4px;
+      height: auto;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .custom-env-label-input:focus { border-bottom-color: #a56eff; }
+
+    .btn-delete-env {
+      all: unset;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fa4d56;
+      border: 1px solid rgba(250, 77, 86, 0.4);
+      background: rgba(250, 77, 86, 0.08);
+      border-radius: 6px;
+      padding: 4px 10px;
+      transition: all 0.15s ease;
+    }
+    .btn-delete-env:hover {
+      background: rgba(250, 77, 86, 0.2);
+      border-color: #fa4d56;
+    }
+
+    /* ── Environment Order list ──────────────────────────────────────────────── */
+    .order-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .order-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--order-bg);
+      cursor: default;
+      user-select: none;
+      box-shadow: var(--card-shadow);
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .order-item:hover {
+      border-color: var(--border-glow);
+      background: var(--surface-hover);
+    }
+    .order-item.dragging { opacity: 0.35; transform: scale(0.98); }
+    .order-item.drag-over {
+      box-shadow: 0 0 0 2px var(--order-drag);
+      background: var(--order-hover);
+    }
+    .order-item.unconfigured { opacity: 0.55; }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--drag-handle);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      transition: color 0.15s;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle:hover  { color: var(--text); }
+    .drag-handle svg { display: block; }
+
+    .order-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .order-dot-local  { background: #4589ff; box-shadow: 0 0 6px rgba(69, 137, 255, 0.5); }
+    .order-dot-dev    { background: #3ddbd9; box-shadow: 0 0 6px rgba(61, 219, 217, 0.5); }
+    .order-dot-stage  { background: #f1c21b; box-shadow: 0 0 6px rgba(241, 194, 27, 0.5); }
+    .order-dot-prod   { background: #fa4d56; box-shadow: 0 0 6px rgba(250, 77, 86, 0.5); }
+    .order-dot-custom { background: #a56eff; box-shadow: 0 0 6px rgba(165, 110, 255, 0.5); }
+
+    .order-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      flex: 1;
+    }
+    .order-status {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-faint);
+      background: var(--surface-2);
+      padding: 3px 10px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .order-status.configured {
+      color: #42be65;
+      background: rgba(66, 190, 101, 0.12);
+      border-color: rgba(66, 190, 101, 0.3);
+    }
+    [data-theme="dark"] .order-status.configured {
+      color: #56d364;
+    }
+
+    /* ── Section divider label ───────────────────────────────────────────────── */
+    .section-group-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin: 28px 0 10px;
+      padding-left: 4px;
+    }
+
+    /* ── Toolbar layout editor ───────────────────────────────────────────────── */
+    .tb-bar { padding: 12px 0; border-bottom: 1px solid var(--border-2); }
+    .tb-bar:last-child { border-bottom: none; padding-bottom: 0; }
+    .tb-bar:first-child { padding-top: 0; }
+    .tb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .tb-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .tb-count { font-size: 11.5px; color: var(--text-muted); }
+    .tb-count.full { color: #b8860b; font-weight: 600; }
+    .tb-preview {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      margin: 8px 0; padding: 6px 8px; min-height: 40px;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .tb-chip {
+      display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px;
+      border-radius: 7px; font-size: 11.5px; font-weight: 500; color: var(--text);
+      background: var(--surface-hover);
+    }
+    .tb-chip.off { opacity: 0.45; }
+    .tb-chip svg, .tb-row svg { flex-shrink: 0; }
+    .tb-fixed { font-size: 11px; color: var(--text-faint); padding: 0 4px; }
+    .tb-list { list-style: none; margin: 0; padding: 0; }
+    .tb-row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 4px;
+      border-bottom: 1px solid var(--border-2); font-size: 13px; color: var(--text);
+    }
+    .tb-row:last-child { border-bottom: none; }
+    .tb-row .tb-name { flex: 1; min-width: 0; }
+    .tb-row .tb-note { font-size: 11.5px; color: var(--text-muted); margin-left: 6px; }
+    .tb-row.off .tb-name { opacity: 0.55; }
+    .tb-ctl {
+      all: unset; cursor: pointer; width: 26px; height: 26px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 13px; line-height: 1;
+    }
+    .tb-ctl:hover:not([aria-disabled="true"]) { background: var(--surface-hover); color: var(--text); }
+    .tb-ctl:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .tb-ctl[aria-disabled="true"] { opacity: 0.3; cursor: default; }
+    .tb-always { font-size: 11.5px; color: var(--text-faint); width: 78px; text-align: right; }
+    .tb-add { margin-top: 8px; }
+    .tb-add select {
+      height: 32px; padding: 0 10px; border-radius: 7px; font: inherit; font-size: 12px;
+      color: var(--input-text); background: var(--input-bg); border: 1px solid var(--input-border);
+    }
+    .tb-add select:disabled { opacity: 0.5; }
+
+    /* ── Quick setup (first run) ─────────────────────────────────────────────── */
+    .quick-setup {
+      border: 1.5px solid var(--accent);
+      background: var(--surface);
+      box-shadow: 0 4px 24px rgba(15, 98, 254, 0.15);
+    }
+    .quick-setup .qs-lead {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .quick-setup .qs-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 12px 14px;
+      align-items: center;
+    }
+    .quick-setup label { font-size: 12px; font-weight: 600; margin-bottom: 0; }
+    .quick-setup input, .quick-setup select {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      border: 1px solid var(--input-border);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .quick-setup input:focus, .quick-setup select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--border-glow);
+    }
+    .quick-setup .qs-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .quick-setup .qs-status { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Keyboard focus & motion ─────────────────────────────────────────────── */
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible,
+    .toggle input:focus-visible + .toggle-slider {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header (sticky): title, unsaved status, Save, backup menu, theme -->
+    <div class="topbar">
+    <div class="header">
+      <div class="header-icon">
+        <svg id="logoSpiral" width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg>
+      </div>
+      <div class="header-text">
+        <div class="title-row">
+          <h1>AEM Orbit</h1>
+          <span class="dirty-note" id="dirtyNote" hidden><span class="dirty-dot"></span>Unsaved changes</span>
+        </div>
+        <div class="header-sub">Configure environments — Local, Dev, Stage, Production &amp; custom</div>
+      </div>
+      <button class="btn btn-primary" id="save">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 1.5l1 1L5 12l-3.5-3.5 1-1L5 10z"/></svg>
+        Save
+      </button>
+      <div class="menu-wrap">
+        <button class="theme-toggle" id="backupMenuBtn" title="Copy or import settings" aria-label="Copy or import settings" aria-haspopup="menu" aria-expanded="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 10a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4z"/></svg>
+        </button>
+        <div class="menu-pop" id="backupMenu" role="menu" hidden>
+          <button class="menu-item" id="exportSettings" role="menuitem" title="Credentials are never included.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 00-2 2v14h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z"/></svg>
+            Copy settings as JSON
+          </button>
+          <button class="menu-item" id="importSettings" role="menuitem" title="Fills the form. Nothing is saved until you click Save.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Import settings…
+          </button>
+          <button class="menu-item" id="shareSettingsUrl" role="menuitem" title="Copy shareable setup link for team pre-provisioning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1 0 1.71-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+            Share setup link
+          </button>
+        </div>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" title="Theme: Auto (follows your browser theme). Click for Light." aria-label="Theme: Auto (follows your browser theme). Click for Light.">
+        <!-- Moon (choice: dark) -->
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+        </svg>
+        <!-- Sun (choice: light) -->
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24">
+          <path d="M12 4.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 4.5zm0 13a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 17.5zm7.5-5.5a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5a.75.75 0 0 1 .75.75zM5 12a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1 0-1.5H4.25A.75.75 0 0 1 5 12zm12.95-6.95a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0zM7.17 16.83a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0zm9.66 1.06a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 0 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06zM7.17 7.17a.75.75 0 0 1-1.06 0L5.05 6.11a.75.75 0 0 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
+        </svg>
+        <!-- Half disc (choice: auto, follow the browser theme) -->
+        <svg class="icon-auto" width="16" height="16" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/>
+        </svg>
+      </button>
+    </div>
+    <div class="status-banner" id="statusBanner" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- Quick setup: shown until an environment has an Author host -->
+    <div class="section quick-setup" id="quickSetup" style="display:none;" role="region" aria-labelledby="qsTitle">
+      <div class="section-title" id="qsTitle">Quick setup</div>
+      <p class="qs-lead">Three steps: enter your Author address, choose how you sign in, then press <b>Test connection</b>. You can fine-tune everything below afterwards.</p>
+      <div class="qs-grid">
+        <label for="qs-env">Environment</label>
+        <select id="qs-env">
+          <option value="local">Local (on this computer)</option>
+          <option value="dev" selected>Dev</option>
+          <option value="stage">Stage</option>
+          <option value="prod">Production</option>
+        </select>
+        <label for="qs-host">Author address</label>
+        <input type="url" id="qs-host" placeholder="https://author-p12345-e67890.adobeaemcloud.com" autocomplete="off" />
+        <label for="qs-auth">Sign-in method</label>
+        <select id="qs-auth">
+          <option value="session" selected>Use my browser login (recommended)</option>
+          <option value="basic">Username and password</option>
+        </select>
+        <label for="qs-user" class="qs-basic" style="display:none;">Username</label>
+        <input type="text" id="qs-user" class="qs-basic" style="display:none;" autocomplete="username" />
+        <label for="qs-pass" class="qs-basic" style="display:none;">Password</label>
+        <input type="password" id="qs-pass" class="qs-basic" style="display:none;" autocomplete="current-password" />
+      </div>
+      <div class="qs-actions">
+        <button class="btn btn-secondary" id="qs-test">Test connection</button>
+        <button class="btn btn-primary" id="qs-save">Save and finish</button>
+        <span class="qs-status" id="qs-status" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <!-- Tabs row -->
+    <div class="tabs-row">
+      <div class="tabs" id="env-tabs">
+        <button class="tab tab-local active" data-tab="local">Local</button>
+        <button class="tab tab-dev"          data-tab="dev">Dev</button>
+        <button class="tab tab-stage"        data-tab="stage">Stage</button>
+        <button class="tab tab-prod"         data-tab="prod">Prod</button>
+        <!-- custom env tabs injected here by JS -->
+      </div>
+      <button class="btn-add-env" id="btn-add-env">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        Add Environment
+      </button>
+    </div>
+
+    <!-- LOCAL panel -->
+    <div class="env-panel visible" id="panel-local">
+      <div class="section">
+        <div class="section-title">Local — Hosts</div>
+        <div class="form-group">
+          <label for="local-authorHost">Author Host <span class="req">*</span></label>
+          <input type="url" id="local-authorHost" placeholder="http://localhost:4502" />
+          <div class="field-hint">AEM local author, e.g. <code>http://localhost:4502</code></div>
+        </div>
+        <div class="form-group">
+          <label for="local-publishHost">Publish Host</label>
+          <input type="url" id="local-publishHost" placeholder="http://localhost:4503" />
+        </div>
+        <div class="form-group">
+          <label for="local-dispatcherHost">Dispatcher Host</label>
+          <input type="url" id="local-dispatcherHost" placeholder="http://localhost:8080" />
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Local — Authentication</div>
+        <div class="form-group">
+          <div class="auth-selector" data-env="local">
+            <button class="auth-option selected" data-type="basic">Basic Auth</button>
+            <button class="auth-option" data-type="bearer">Bearer Token</button>
+            <button class="auth-option" data-type="none">No Auth</button>
+          </div>
+          <div class="auth-fields visible" id="local-basic-fields">
+            <label for="local-username">Username <span class="req">*</span></label>
+            <input type="text" id="local-username" placeholder="admin" autocomplete="username" style="margin-bottom:8px;" />
+            <label for="local-password">Password</label>
+            <input type="password" id="local-password" placeholder="admin" autocomplete="current-password" />
+          </div>
+          <div class="auth-fields" id="local-bearer-fields">
+            <label for="local-bearerToken">Bearer Token</label>
+            <input type="password" id="local-bearerToken" placeholder="eyJhbGci…" />
+            <div class="field-hint">IMS Access Token. Obtain from Developer Console → Integrations.</div>
+          </div>
+          <div class="auth-fields" id="local-none-fields">
+            <div class="field-hint" style="padding-top:4px;">No authentication header will be sent.</div>
+          </div>
+          <div class="form-group" style="padding:12px 0 0;border:none;">
+            <button class="btn btn-secondary btn-sm" data-test="local">Test Connection</button>
+            <div class="test-row">
+              <div class="dot unknown" id="local-connDot"></div>
+              <span class="conn-status-text" id="local-connStatus">Not tested</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEV panel -->
+    <div class="env-panel" id="panel-dev">
+      <div class="section">
+        <div class="section-title">Dev — Hosts</div>
+        <div class="form-group">
+          <label for="dev-authorHost">Author Host <span class="req">*</span></label>
+          <input type="url" id="dev-authorHost" placeholder="https://author-pXXXX-eXXXX.adobeaemcloud.com" />
+        </div>
+        <div class="form-group">
+          <label for="dev-publishHost">Publish Host</label>
+          <input type="url" id="dev-publishHost" placeholder="https://publish-pXXXX-eXXXX.adobeaemcloud.com" />
+        </div>
+        <div class="form-group">
+          <label for="dev-dispatcherHost">Dispatcher Host</label>
+          <input type="url" id="dev-dispatcherHost" placeholder="https://dev.yoursite.com" />
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Dev — Authentication</div>
+        <div class="form-group">
+          <div class="auth-selector" data-env="dev">
+            <button class="auth-option selected" data-type="basic">Basic Auth</button>
+            <button class="auth-option" data-type="bearer">Bearer Token</button>
+            <button class="auth-option" data-type="none">No Auth</button>
+          </div>
+          <div class="auth-fields visible" id="dev-basic-fields">
+            <label for="dev-username">Username <span class="req">*</span></label>
+            <input type="text" id="dev-username" placeholder="admin" autocomplete="username" style="margin-bottom:8px;" />
+            <label for="dev-password">Password</label>
+            <input type="password" id="dev-password" autocomplete="current-password" />
+          </div>
+          <div class="auth-fields" id="dev-bearer-fields">
+            <label for="dev-bearerToken">Bearer Token</label>
+            <input type="password" id="dev-bearerToken" placeholder="eyJhbGci…" />
+            <div class="field-hint">IMS Access Token from Developer Console.</div>
+          </div>
+          <div class="auth-fields" id="dev-none-fields">
+            <div class="field-hint" style="padding-top:4px;">No authentication header will be sent.</div>
+          </div>
+          <div class="form-group" style="padding:12px 0 0;border:none;">
+            <button class="btn btn-secondary btn-sm" data-test="dev">Test Connection</button>
+            <div class="test-row">
+              <div class="dot unknown" id="dev-connDot"></div>
+              <span class="conn-status-text" id="dev-connStatus">Not tested</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE panel -->
+    <div class="env-panel" id="panel-stage">
+      <div class="section">
+        <div class="section-title">Stage — Hosts</div>
+        <div class="form-group">
+          <label for="stage-authorHost">Author Host</label>
+          <input type="url" id="stage-authorHost" placeholder="https://author-pXXXX-eYYYY.adobeaemcloud.com" />
+          <div class="field-hint">Basic Auth is disabled on AEM Cloud stage/prod — use Bearer Token.</div>
+        </div>
+        <div class="form-group">
+          <label for="stage-publishHost">Publish Host</label>
+          <input type="url" id="stage-publishHost" placeholder="https://publish-pXXXX-eYYYY.adobeaemcloud.com" />
+        </div>
+        <div class="form-group">
+          <label for="stage-dispatcherHost">Dispatcher Host</label>
+          <input type="url" id="stage-dispatcherHost" placeholder="https://stage.yoursite.com" />
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Stage — Authentication</div>
+        <div class="form-group">
+          <div class="auth-selector" data-env="stage">
+            <button class="auth-option" data-type="basic">Basic Auth</button>
+            <button class="auth-option selected" data-type="bearer">Bearer Token</button>
+            <button class="auth-option" data-type="none">No Auth</button>
+          </div>
+          <div class="auth-fields" id="stage-basic-fields">
+            <label for="stage-username">Username</label>
+            <input type="text" id="stage-username" autocomplete="username" style="margin-bottom:8px;" />
+            <label for="stage-password">Password</label>
+            <input type="password" id="stage-password" autocomplete="current-password" />
+            <div class="field-hint">⚠ Basic Auth is typically disabled on AEM Cloud stage/prod.</div>
+          </div>
+          <div class="auth-fields visible" id="stage-bearer-fields">
+            <label for="stage-bearerToken">IMS Bearer Token <span class="req">*</span></label>
+            <input type="password" id="stage-bearerToken" placeholder="eyJhbGci…" />
+            <div class="field-hint">Obtain from <strong>Adobe Developer Console</strong> → your project → <em>Generate access token</em>.</div>
+          </div>
+          <div class="auth-fields" id="stage-none-fields">
+            <div class="field-hint" style="padding-top:4px;">No auth — useful for read-only publish/dispatcher operations only.</div>
+          </div>
+          <div class="form-group" style="padding:12px 0 0;border:none;">
+            <button class="btn btn-secondary btn-sm" data-test="stage">Test Connection</button>
+            <div class="test-row">
+              <div class="dot unknown" id="stage-connDot"></div>
+              <span class="conn-status-text" id="stage-connStatus">Not tested</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROD panel -->
+    <div class="env-panel" id="panel-prod">
+      <div class="section">
+        <div class="section-title">Prod — Hosts</div>
+        <div class="form-group">
+          <label for="prod-authorHost">Author Host</label>
+          <input type="url" id="prod-authorHost" placeholder="https://author-pXXXX-eZZZZ.adobeaemcloud.com" />
+          <div class="field-hint">Production AEM as a Cloud Service author. Basic Auth is disabled — use Bearer Token.</div>
+        </div>
+        <div class="form-group">
+          <label for="prod-publishHost">Publish Host</label>
+          <input type="url" id="prod-publishHost" placeholder="https://publish-pXXXX-eZZZZ.adobeaemcloud.com" />
+        </div>
+        <div class="form-group">
+          <label for="prod-dispatcherHost">Dispatcher / CDN Host</label>
+          <input type="url" id="prod-dispatcherHost" placeholder="https://www.yoursite.com" />
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Prod — Authentication</div>
+        <div class="form-group">
+          <div class="auth-selector" data-env="prod">
+            <button class="auth-option" data-type="basic">Basic Auth</button>
+            <button class="auth-option selected" data-type="bearer">Bearer Token</button>
+            <button class="auth-option" data-type="none">No Auth</button>
+          </div>
+          <div class="auth-fields" id="prod-basic-fields">
+            <label for="prod-username">Username</label>
+            <input type="text" id="prod-username" autocomplete="username" style="margin-bottom:8px;" />
+            <label for="prod-password">Password</label>
+            <input type="password" id="prod-password" autocomplete="current-password" />
+            <div class="field-hint">⚠ Basic Auth is disabled on AEM Cloud production. Use Bearer Token.</div>
+          </div>
+          <div class="auth-fields visible" id="prod-bearer-fields">
+            <label for="prod-bearerToken">IMS Bearer Token <span class="req">*</span></label>
+            <input type="password" id="prod-bearerToken" placeholder="eyJhbGci…" />
+            <div class="field-hint">Obtain from <strong>Adobe Developer Console</strong> → your project → <em>Generate access token</em>. <strong>Production tokens have shorter expiry</strong> — regenerate frequently.</div>
+          </div>
+          <div class="auth-fields" id="prod-none-fields">
+            <div class="field-hint" style="padding-top:4px;">No auth — read-only publish/dispatcher operations only.</div>
+          </div>
+          <div class="form-group" style="padding:12px 0 0;border:none;">
+            <button class="btn btn-secondary btn-sm" data-test="prod">Test Connection</button>
+            <div class="test-row">
+              <div class="dot unknown" id="prod-connDot"></div>
+              <span class="conn-status-text" id="prod-connStatus">Not tested</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom env panels injected here by JS -->
+    <div id="custom-panels"></div>
+
+    <!-- Environment Order -->
+    <div class="section-group-label">Environment Order</div>
+    <div class="section" id="order-section">
+      <div class="section-title">
+        Display order in toolbar
+        <span style="font-size:11px;font-weight:400;color:var(--text-faint);text-transform:none;letter-spacing:0;">Drag to reorder · unconfigured envs are hidden from toolbar</span>
+      </div>
+      <div class="order-list" id="env-order-list">
+        <!-- items injected by JS -->
+      </div>
+    </div>
+
+    <!-- Shared settings -->
+    <div class="section-group-label">General</div>
+    <div class="section">
+      <div class="section-title">Content Path Mapping</div>
+      <div class="form-group">
+        <label for="contentRoot">JCR Content Root</label>
+        <input type="text" id="contentRoot" placeholder="/content/mysite" />
+        <div class="field-hint">Shared across all environments, e.g. <code>/content/mysite</code></div>
+      </div>
+      <div class="form-group">
+        <label for="appName">App Name (<code>/apps/</code> folder)</label>
+        <input type="text" id="appName" placeholder="mysite" />
+      </div>
+      <div class="form-group">
+        <label for="imsOrg">Universal Editor organisation</label>
+        <input type="text" id="imsOrg" placeholder="adobe" maxlength="64" spellcheck="false" />
+        <div class="field-hint">The <code>@org</code> part of Universal Editor links (<code>experience.adobe.com/#/@org/aem/editor/…</code>). Leave empty for <code>adobe</code>. Universal Editor links need an https Author host.</div>
+      </div>
+      <div class="form-group">
+        <label for="requestTimeoutSec">Request timeout</label>
+        <div class="stepper" role="group" aria-label="Request timeout in seconds">
+          <button type="button" class="stepper-btn" id="requestTimeoutSec-dec" aria-label="Decrease timeout" title="Decrease by 5 seconds">−</button>
+          <input type="number" id="requestTimeoutSec" min="5" max="120" step="5" inputmode="numeric" placeholder="15" />
+          <span class="stepper-unit" aria-hidden="true">sec</span>
+          <button type="button" class="stepper-btn" id="requestTimeoutSec-inc" aria-label="Increase timeout" title="Increase by 5 seconds">+</button>
+        </div>
+        <div class="field-hint">How long to wait for AEM to answer before giving up. 5 to 120, default 15. Raise it for slow environments or large trees.</div>
+      </div>
+      <div class="form-group">
+        <label for="urlMappings">Dispatcher / CDN URL Mappings</label>
+        <textarea id="urlMappings" rows="6" spellcheck="false" placeholder="# Default locale, served without a prefix&#10;/content/mysite/us/en = /&#10;# Home page the site redirects to (this page only)&#10;/content/mysite/us/en/homepage == /&#10;# Other locales, one line each&#10;/content/mysite/de/de = /de-de"></textarea>
+        <div class="field-hint">One rule per line: <code>&lt;JCR path&gt; = &lt;public path&gt;</code> (page and children) or <code>==</code> (that page only). The most specific rule wins; <code>#</code> starts a comment. With no match, the JCR Content Root is prepended.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Safety</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Confirm before Delete</div>
+          <div class="toggle-desc">Show a confirmation dialog before deleting a page. Protected environments always ask for confirmation.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="confirmDelete" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Confirm before Publish / Unpublish</div>
+          <div class="toggle-desc">Ask before Publish, Unpublish and Publish to Preview on every environment. Protected environments always ask, and you must type the page name.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="confirmPublish" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Allow syncing to higher environments</div>
+          <div class="toggle-desc">Off: Sync only copies a page from a higher environment to a lower one (for example Prod → Stage), using the order set under Environment order. On: it also allows lower → higher (for example Dev → Prod), so the Sync menu shows both Pull and Push for every environment. Protected environments still need a typed confirmation.</div>
+          <div class="toggle-desc" id="allowUpwardSyncNote" style="display:none;">Not available: Sync needs Developer Mode and its Sync toggle to be on. Your choice here is kept.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="allowUpwardSync" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Desktop notifications</div>
+          <div class="toggle-desc">Show a system notification after Publish, Unpublish, Delete, Sync and similar actions. The toolbar message always appears; turn this off if the extra pop-up is noisy.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notifyOnActions" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Keep passwords and tokens for this browser session only</div>
+          <div class="toggle-desc">Stores Basic-auth passwords and bearer tokens in memory instead of on disk. They are forgotten when the browser closes, so you enter them again next time. Browser Session login stores nothing either way. Click Save to apply.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="sessionOnlyCredentials" /><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Toolbar Visibility</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Show on Author pages</div>
+          <div class="toggle-desc">Inject the Orbit bar when on AEM Author</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="showOnAuthor" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Show on Publish pages</div>
+          <div class="toggle-desc">Inject the Orbit bar when on AEM Publish</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="showOnPublish" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Show on Dispatcher / CDN</div>
+          <div class="toggle-desc">Inject the Orbit bar when on your live site (Dispatcher / CDN host)</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="showOnDispatcher" checked /><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="section-group-label">Features</div>
+    <div class="section">
+      <div class="section-title">Keyboard &amp; Display</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Keyboard shortcut — <code>⌥⇧K</code> <span style="font-size:10px;font-weight:400;color:var(--text-faint);">(Mac: Option+Shift+K · Win/Linux: Alt+Shift+K)</span></div>
+          <div class="toggle-desc">Toggle the Orbit bar without clicking the extension icon</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="enableKeyboardShortcut" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Show last-modified on status pill</div>
+          <div class="toggle-desc">Hover the status pill to see the page's last-modified timestamp</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="showLastModified" checked /><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="section-group-label">Toolbar</div>
+    <div class="section">
+      <div class="section-title">Collapsed bar style</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Use classic horizontal bar when collapsed</div>
+          <div class="toggle-desc">Replaces the default floating orb with a classic horizontal minimized bar (Edit, View, Live, Props). When off (default), the animated orb with its radial action fan is used. Changes apply the next time a page loads.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="classicBar" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Open the orb at the pointer</div>
+          <div class="toggle-desc">Press and hold on empty page space to call up the orb right there. The spot isn't saved; it goes back after about 3 seconds with the pointer away, on Esc, or on a click elsewhere. Only applies when the floating orb is used. Changes apply the next time a page loads.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="summonOnLongPress" /><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Toolbar buttons</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Customise toolbar buttons</div>
+          <div class="toggle-desc">Choose which buttons appear on the regular and expanded bars, and in what order. When off, the standard toolbar is used. Your arrangement is kept while this is off. Changes apply the next time a page loads.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="customizeToolbar" /><span class="toggle-slider"></span></label>
+      </div>
+      <!-- Layout editor — shown only when customising is enabled -->
+      <div id="tbSection" style="display:none;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0 12px;">
+          <div class="field-hint" style="margin:0;">The logo, status, environment, Close, More and Settings buttons always stay. Anything you take off the expanded bar is still available from the More menu and the command palette.</div>
+          <button class="btn btn-secondary btn-sm" id="tbReset" type="button" style="flex-shrink:0;white-space:nowrap;">Reset to default</button>
+        </div>
+        <div class="field-hint" id="tbOrbNote" style="display:none;margin:0 0 10px;">The collapsed bar is shown as the default floating orb, which has a fixed set of buttons (Edit, View, Live, Environment, JCR or Copy path, Props and Sites), so its buttons can't be chosen here. Your arrangement is kept for when the classic horizontal bar is used.</div>
+        <div id="tbEditor"></div>
+      </div>
+    </div>
+
+    <div class="section-group-label">Developer Mode</div>
+    <div class="section">
+      <div class="section-title">Developer toolbar controls</div>
+      <div class="field-hint" id="policyNote" style="display:none;margin:0 0 10px;"></div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Enable Developer Mode</div>
+          <div class="toggle-desc">Show the developer-only actions (JCR, Overlays, Highlight, Inspect, Developer links, Reload, Delete, Sync) on the toolbar, in the More menu where they have a row, and in the popup's Developer Tools group. When off, only publish and navigation actions are shown.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="enableDevMode" /><span class="toggle-slider"></span></label>
+      </div>
+      <!-- Per-button toggles — shown only when Developer Mode is enabled -->
+      <div id="devBtnSection" style="display:none;">
+        <div class="field-hint" style="padding:10px 0 6px;">Choose which developer actions are available when Developer Mode is on. Turning one off also removes its row from the More menu and the command palette, and its button from the popup where it has one.</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">JCR Inspector</div>
+            <div class="toggle-desc">Opens a panel with the page's <code>jcr:content</code> tree: browse and filter its nodes and properties, and compare them with another environment.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-jcr" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Toggle Overlays</div>
+            <div class="toggle-desc">Switches the AEM editor's edit overlays on or off, so you can see the page without the editing frames.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-overlays" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Highlight Components</div>
+            <div class="toggle-desc">Outlines the editable components on the page without shifting the layout.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-highlight" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Component Inspector</div>
+            <div class="toggle-desc">Hover or click a component to see its resource type and resource path. Copy either one or open it in CRXDE.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-inspect" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Developer links (CRXDE, Package Manager, JSON views, debug options)</div>
+            <div class="toggle-desc">A menu of developer views of this page: CRXDE Lite, <code>.model.json</code> and <code>.infinity.json</code>, <code>wcmmode=disabled</code>, client-library and layout debug options, and a no-cache reload.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-tools" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Hard Reload</div>
+            <div class="toggle-desc">Reloads the page and bypasses the browser cache.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-reload" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Delete Page</div>
+            <div class="toggle-desc">Deletes the page after a confirmation. Live pages are unpublished first, and pages that are still referenced are refused. Protected environments ask you to type the page name.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-delete" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Sync Contents</div>
+            <div class="toggle-desc">Copies this page's content between environments (pull from or push to another one). It asks for confirmation, saves a version of the target page first, and by default only flows from a higher environment to a lower one.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="devBtn-sync" checked /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="reset">Reset to Defaults</button>
+      <button class="btn btn-danger" id="clearAll" style="margin-left:auto;">Clear All Data</button>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

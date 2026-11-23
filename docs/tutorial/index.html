@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self' https://github.com https://*.githubusercontent.com; base-uri 'none'; form-action 'none'">
+  <title>AEM Orbit — Video tutorial</title>
+  <link rel="stylesheet" href="tutorial.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">A</span>
+      <div>
+        <h1>AEM Orbit <span class="badge">Video tutorial</span></h1>
+        <p id="summary">Recorded live in a real browser against real AEM author and publish instances.</p>
+      </div>
+    </div>
+    <a class="back" href="https://github.com/iam-udit/aem-orbit#readme">Back to the README</a>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="Video player">
+      <div class="screen">
+        <video id="player" controls preload="metadata" playsinline></video>
+        <p id="fallback" class="fallback" hidden>This video could not be loaded. Check your connection, or download it from the <a id="fallbackLink" href="https://github.com/iam-udit/aem-orbit/releases/tag/tutorial-videos">releases page</a>.</p>
+      </div>
+      <div class="meta">
+        <div class="meta-head">
+          <div>
+            <p class="kicker" id="kicker"></p>
+            <h2 id="title"></h2>
+          </div>
+          <div class="controls">
+            <button type="button" id="prev">Previous</button>
+            <button type="button" id="next">Next</button>
+            <label>Speed
+              <select id="speed">
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="autoplay" checked> Play next chapter automatically</label>
+          </div>
+        </div>
+        <p id="description"></p>
+        <h3>What you will see</h3>
+        <ul id="topics"></ul>
+      </div>
+    </section>
+
+    <nav class="playlist" aria-label="Chapters">
+      <div class="playlist-head">
+        <h2>Chapters</h2>
+        <span id="total"></span>
+      </div>
+      <ol id="chapters"></ol>
+    </nav>
+  </main>
+
+  <footer class="foot">
+    <p>Every chapter is a single unedited take. The extension makes no external calls; the voice is synthetic and only used for this video.</p>
+  </footer>
+
+  <script src="tutorial.js"></script>
+</body>
+</html>

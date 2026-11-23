@@ -1,0 +1,8 @@
+# Default locale, served without a prefix
+/content/wknd/us/en = /
+# Home page the site redirects to (this page only)
+/content/wknd/us/en/homepage == /
+/content/wknd/us/en/homepage == /us-en
+/content/wknd/de/de/homepage == /de-de
+# Other locales, one line each
+/content/wknd/de/de = /de-de

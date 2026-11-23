@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AEM Orbit</title>
+  <link rel="stylesheet" href="../ui/dialog.css" />
+  <style>
+    :root {
+      --bg: #131416;
+      --surface: #1b1c20;
+      --surface-hover: #24262b;
+      --surface-active: #2c2e35;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-bg-hover: rgba(255, 255, 255, 0.07);
+      --card-bd: rgba(255, 255, 255, 0.08);
+      --card-bd-hover: rgba(255, 255, 255, 0.16);
+      --bd: rgba(255, 255, 255, 0.08);
+      --bd2: rgba(255, 255, 255, 0.12);
+      --fg: #f4f5f8;
+      --fg2: #c8cbd2;
+      --muted: #8e95a2;
+      --muted2: #727986;
+      --sub: #a4abb8;
+      --faint: #565d6b;
+      --code: #a8c7fa;
+      --link: #78a9ff;
+      --accent2: #4589ff;
+      --accentbg: #1a3a6e;
+      --warn: #f1c21b;
+      --ok: #56d364;
+      --bad: #ff8389;
+      --mod: #ff832b;
+      --purple: #d4bbff;
+      --teal: #3ddbd9;
+      --warnbg: rgba(241, 194, 27, 0.12);
+      --okbg: rgba(86, 211, 100, 0.12);
+      --okbg2: rgba(86, 211, 100, 0.18);
+      --badbg: rgba(255, 131, 137, 0.12);
+      --modbg: rgba(255, 131, 43, 0.12);
+      --infobg: rgba(120, 169, 255, 0.12);
+      --codebg: #0d0e10;
+      --tint: 255, 255, 255;
+    }
+    :root[data-asp-theme="light"] {
+      --bg: #f5f6f9;
+      --surface: #ffffff;
+      --surface-hover: #f0f2f6;
+      --surface-active: #e4e7ee;
+      --card-bg: #ffffff;
+      --card-bg-hover: #f9fafd;
+      --card-bd: rgba(0, 0, 0, 0.08);
+      --card-bd-hover: rgba(0, 0, 0, 0.15);
+      --bd: rgba(0, 0, 0, 0.08);
+      --bd2: rgba(0, 0, 0, 0.12);
+      --fg: #131518;
+      --fg2: #383c44;
+      --muted: #5e6573;
+      --muted2: #727986;
+      --sub: #454a54;
+      --faint: #88909f;
+      --code: #0043ce;
+      --link: #0043ce;
+      --accent2: #0f62fe;
+      --accentbg: #d0e2ff;
+      --warn: #8e6a00;
+      --ok: #198038;
+      --bad: #da1e28;
+      --mod: #8a3800;
+      --purple: #6929c4;
+      --teal: #005d5d;
+      --warnbg: #fcf4d6;
+      --okbg: #defbe6;
+      --okbg2: #c6f6d5;
+      --badbg: #fff1f1;
+      --modbg: #ffd9be;
+      --infobg: #edf5ff;
+      --codebg: #f4f5f8;
+      --tint: 0, 0, 0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(var(--tint), 0.18) transparent;
+    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(var(--tint), 0.18); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(var(--tint), 0.3); }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--fg);
+      width: 365px;
+      min-height: 520px;
+      overflow-x: hidden;
+      padding-bottom: 12px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 10px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--bd);
+      gap: 8px;
+    }
+    .header-left { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
+    .logo {
+      width: 26px; height: 26px;
+      background: linear-gradient(135deg, #eb1000 0%, #ff5a36 100%);
+      box-shadow: 0 2px 8px rgba(235, 16, 0, 0.4);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--fg);
+      white-space: nowrap;
+    }
+    .env-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 100px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(var(--tint), 0.08);
+      color: rgba(var(--tint), 0.65);
+      border: 1px solid var(--card-bd);
+      flex-shrink: 0;
+    }
+    .env-badge-local  { background: rgba(0, 67, 206, 0.25);  color: var(--link); border-color: rgba(69, 137, 255, 0.35); }
+    .env-badge-dev    { background: rgba(0, 125, 121, 0.25); color: var(--teal); border-color: rgba(61, 219, 217, 0.35); }
+    .env-badge-stage  { background: rgba(178, 134, 0, 0.25); color: var(--warn); border-color: rgba(241, 194, 27, 0.35); }
+    .env-badge-prod   { background: rgba(218, 30, 40, 0.25); color: var(--bad); border-color: rgba(250, 77, 86, 0.35); }
+    .env-badge-custom { background: rgba(105, 41, 196, 0.25); color: var(--purple); border-color: rgba(165, 110, 255, 0.35); }
+    .env-lock { flex-shrink: 0; fill: currentColor; }
+
+    .header-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .icon-btn {
+      width: 28px; height: 28px;
+      background: transparent; border: 1px solid transparent; border-radius: 6px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .icon-btn:hover { background: var(--card-bg-hover); color: var(--fg); border-color: var(--card-bd); }
+    .icon-btn svg { fill: currentColor; }
+
+    /* ── Hero Page Info Card ─────────────────────────────────────── */
+    .page-info {
+      margin: 10px 12px 6px;
+      padding: 11px 13px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-bd);
+      border-radius: 11px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      transition: border-color 0.15s;
+    }
+    .page-url {
+      font-size: 10.5px;
+      color: var(--muted2);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+    .jcr-path {
+      font-size: 11.5px;
+      font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace;
+      color: var(--link);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer;
+      font-weight: 500;
+      padding: 1px 0;
+      display: block;
+    }
+    .jcr-path:hover { text-decoration: underline; color: var(--accent2); }
+    .viewing-note {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin: 2px 0 4px; padding: 3px 8px;
+      font-size: 10.5px; color: var(--warn);
+      background: var(--warnbg); border-radius: 6px;
+    }
+    .viewing-back {
+      all: unset; cursor: pointer; flex-shrink: 0;
+      font-size: 10.5px; font-weight: 600; color: var(--link);
+    }
+    .viewing-back:hover { text-decoration: underline; }
+    
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 4.5px;
+      padding: 2.5px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .status-pill::before {
+      content: ''; width: 5.5px; height: 5.5px; border-radius: 50%; background: currentColor;
+    }
+    .status-pill.published { background: var(--okbg); color: var(--ok); border-color: rgba(86, 211, 100, 0.25); }
+    .status-pill.draft     { background: var(--warnbg); color: var(--warn); border-color: rgba(241, 194, 27, 0.25); }
+    .status-pill.modified  { background: var(--modbg); color: var(--mod); border-color: rgba(255, 131, 43, 0.25); }
+    .status-pill.unknown   { background: rgba(var(--tint), 0.06); color: var(--muted); border-color: var(--card-bd); }
+    .last-mod { font-size: 10.5px; color: var(--muted); margin-left: 1px; }
+    
+    .fav-btn {
+      margin-left: auto;
+      width: 24px; height: 24px;
+      background: transparent; border: 1px solid transparent; border-radius: 5px;
+      cursor: pointer;
+      color: var(--muted2); font-size: 15px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, color 0.12s, transform 0.12s;
+    }
+    .fav-btn:hover { background: var(--card-bg-hover); color: var(--warn); transform: scale(1.1); }
+    .fav-btn.on { color: var(--warn); }
+    
+    .page-details {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 7px;
+      padding-top: 6px;
+      border-top: 1px solid var(--bd);
+      line-height: 1.45;
+    }
+    .page-details .pd-warn { color: var(--warn); font-weight: 500; }
+
+    /* ── Search ──────────────────────────────────────────────────── */
+    .search-bar {
+      margin: 8px 12px 6px;
+      display: flex;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--card-bd);
+      border-radius: 8px;
+      padding: 2px 3px 2px 10px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-bar:focus-within {
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.15);
+    }
+    .search-icon {
+      color: var(--muted2);
+      margin-right: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+    .search-input {
+      flex: 1;
+      height: 28px;
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+    .search-input:focus, .search-input:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+    .search-input::placeholder { color: var(--faint); }
+    .search-btn {
+      height: 26px; padding: 0 10px;
+      background: rgba(15, 98, 254, 0.14);
+      border: 1px solid rgba(69, 137, 255, 0.35);
+      color: var(--link);
+      border-radius: 5px;
+      cursor: pointer; font-size: 11.5px; font-family: inherit; font-weight: 600;
+      transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .search-btn:hover {
+      background: rgba(15, 98, 254, 0.22);
+      border-color: rgba(69, 137, 255, 0.5);
+      color: #a8c7fa;
+    }
+    .search-btn:active { transform: scale(0.98); }
+
+    .search-results {
+      display: none;
+      margin: 0 12px 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid var(--card-bd);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .search-results.open { display: block; }
+    .search-result-item {
+      display: flex; flex-direction: column;
+      padding: 7px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--bd);
+      transition: background 0.1s;
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--surface-hover); }
+    .sr-title { font-size: 12px; color: var(--fg); font-weight: 500; }
+    .sr-path  { font-size: 10px; color: var(--faint); font-family: ui-monospace, monospace; margin-top: 1px; }
+    .search-empty { padding: 12px 14px; font-size: 12px; color: var(--faint); text-align: center; }
+    .search-results::-webkit-scrollbar { width: 4px; }
+    .search-results::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+    /* ── Primary Actions ─────────────────────────────────────────── */
+    .primary-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 3px 12px;
+    }
+    .primary-row-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .primary-row-4 .big-btn { padding: 0 8px; }
+    .primary-row-repl { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding-top: 6px; }
+    .primary-row-repl .big-btn { grid-column: span 2; padding: 0 6px; min-width: 0; }
+    .primary-row-repl.no-preview #publishBtn,
+    .primary-row-repl.no-preview #unpublishBtn { grid-column: span 3; }
+    .big-btn.active {
+      background: var(--surface-active);
+      border-color: var(--accent2);
+      color: var(--link);
+      box-shadow: 0 0 0 1px var(--accent2);
+    }
+    .big-btn {
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      height: 32px; border-radius: 7px;
+      border: 1px solid var(--card-bd);
+      background: var(--card-bg);
+      color: var(--fg);
+      font-family: inherit; font-size: 11.5px; font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      transition: background 0.12s, border-color 0.12s, transform 0.1s, box-shadow 0.12s;
+      white-space: nowrap;
+    }
+    .big-btn:hover {
+      background: var(--card-bg-hover);
+      border-color: var(--card-bd-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+    }
+    .big-btn:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
+    .big-btn svg { fill: currentColor; flex-shrink: 0; }
+
+    .big-btn.publish {
+      background: rgba(15, 98, 254, 0.14);
+      border-color: rgba(69, 137, 255, 0.35);
+      color: var(--link);
+    }
+    .big-btn.publish:hover {
+      background: rgba(15, 98, 254, 0.22);
+      border-color: rgba(69, 137, 255, 0.5);
+      color: #a8c7fa;
+    }
+    .big-btn.unpub {
+      background: var(--warnbg);
+      border-color: rgba(241, 194, 27, 0.25);
+      color: var(--warn);
+    }
+    .big-btn.unpub:hover {
+      background: rgba(241, 194, 27, 0.18);
+      border-color: rgba(241, 194, 27, 0.4);
+    }
+    .big-btn.busy { opacity: 0.6; cursor: progress; transform: none !important; }
+
+    /* ── Collapsible Groups & Action Tile Grids ──────────────────── */
+    details.group {
+      margin: 8px 12px 0;
+      border: 1px solid var(--card-bd);
+      border-radius: 10px;
+      background: var(--card-bg);
+      overflow: hidden;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    details.group[open] {
+      background: rgba(var(--tint), 0.02);
+    }
+    details.group > summary {
+      list-style: none; cursor: pointer;
+      padding: 9px 12px;
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+      user-select: none;
+      transition: color 0.12s;
+    }
+    details.group > summary::-webkit-details-marker { display: none; }
+    details.group > summary::after {
+      content: '▾';
+      font-size: 12px;
+      color: var(--muted2);
+      transition: transform 0.15s;
+    }
+    details.group[open] > summary::after { transform: rotate(180deg); }
+    details.group > summary:hover { color: var(--fg); }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 0 8px 8px;
+    }
+    .action-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 9px 6px;
+      background: var(--surface);
+      border: 1px solid var(--card-bd);
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--sub); font-family: inherit; font-size: 11px; font-weight: 500;
+      transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.1s;
+      text-align: center; line-height: 1.25;
+    }
+    .action-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--card-bd-hover);
+      color: var(--fg);
+      transform: translateY(-1px);
+    }
+    .action-btn.active {
+      background: var(--surface-active);
+      border-color: var(--accent2);
+      color: var(--link);
+      box-shadow: 0 0 0 1px var(--accent2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .action-btn:active { transform: translateY(0); }
+    .action-btn svg { fill: currentColor; }
+
+    .action-btn.full-width {
+      grid-column: span 3;
+      flex-direction: row;
+      gap: 8px;
+      padding: 8px 12px;
+      font-size: 11.5px;
+      justify-content: flex-start;
+    }
+    .action-btn.danger {
+      background: var(--badbg);
+      border-color: rgba(218, 30, 40, 0.2);
+      color: var(--bad);
+    }
+    .action-btn.danger:hover {
+      background: rgba(218, 30, 40, 0.2);
+      border-color: rgba(218, 30, 40, 0.35);
+      color: #ff8389;
+    }
+    .action-btn.primary {
+      background: #0f62fe; color: #fff;
+      border: 1px solid #0f62fe; border-radius: 6px;
+      padding: 8px 16px; display: inline-flex; width: auto;
+    }
+    .action-btn.primary:hover { background: #0353e9; }
+
+    /* ── List Rows (Recent / Favourites / Compare / Quick Links) ──── */
+    .list-head {
+      font-size: 10px; color: var(--muted);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 6px 0 3px;
+    }
+    .list-row {
+      display: flex; align-items: center; gap: 8px; padding: 5px 0;
+      border-bottom: 1px solid var(--bd); white-space: nowrap;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .list-sub  { font-size: 10px; color: var(--faint); }
+    .list-tag  {
+      font-size: 9px; font-weight: 700; padding: 1.5px 5.5px;
+      border-radius: 100px; background: var(--surface-hover); color: var(--muted);
+      flex-shrink: 0;
+    }
+    .list-tag.ok   { background: var(--okbg); color: var(--ok); }
+    .list-tag.warn { background: var(--warnbg); color: var(--warn); }
+    .list-tag.bad  { background: var(--badbg); color: var(--bad); }
+
+    .bulk-input {
+      width: 100%; box-sizing: border-box; height: 90px; resize: vertical;
+      background: var(--codebg); color: var(--fg);
+      border: 1px solid var(--card-bd); border-radius: 6px;
+      font-family: ui-monospace, monospace; font-size: 10.5px; padding: 8px; white-space: pre;
+    }
+    .bulk-actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+
+    /* ── Panel (JCR Inspector / Versions / Details) ───────────────── */
+    .panel {
+      display: none;
+      margin: 8px 12px 0;
+      border: 1px solid var(--card-bd);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    .panel.open { display: block; }
+    .panel-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--bd);
+    }
+    .panel-toolbar-left { display: flex; align-items: center; gap: 8px; }
+    .panel-title {
+      font-size: 10.5px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em;
+    }
+    .panel-content {
+      max-height: 200px; overflow-y: auto;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      color: var(--code); white-space: pre-wrap; word-break: break-all;
+      background: var(--codebg); line-height: 1.6;
+    }
+    .panel-content.ws-normal {
+      white-space: normal; word-break: normal;
+      font-family: inherit; color: var(--fg2); max-height: 260px;
+    }
+    .panel-content::-webkit-scrollbar { width: 4px; }
+    .panel-content::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+    /* Version list */
+    .version-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 0; border-bottom: 1px solid var(--bd); gap: 8px;
+    }
+    .version-item:last-child { border-bottom: none; }
+    .version-name { font-size: 11px; color: var(--code); font-family: monospace; }
+    .version-date { font-size: 10px; color: var(--faint); }
+    .version-restore {
+      font-size: 10px; color: var(--accent2); cursor: pointer; padding: 2px 6px;
+      border: 1px solid var(--accentbg); border-radius: 4px; background: transparent;
+      font-family: inherit; transition: background 0.1s;
+    }
+    .version-restore:hover { background: var(--accentbg); }
+
+    /* URL variants panel */
+    .url-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--bd); gap: 8px;
+    }
+    .url-item:last-child { border-bottom: none; }
+    .url-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; width: 70px; flex-shrink: 0; }
+    .url-value { font-size: 10px; color: var(--code); font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-copy, .url-open {
+      font-size: 10px; cursor: pointer; padding: 2px 6px;
+      border: 1px solid var(--card-bd); border-radius: 4px; background: transparent;
+      font-family: inherit; transition: all 0.12s; flex-shrink: 0;
+    }
+    .url-copy { color: var(--muted); }
+    .url-copy:hover { background: var(--surface-hover); color: var(--fg); border-color: var(--card-bd-hover); }
+    .url-open { color: var(--accent2); border-color: var(--accentbg); }
+    .url-open:hover { background: var(--accentbg); }
+
+    /* JCR property rows */
+    .jcr-row {
+      display: flex; gap: 8px; padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      align-items: flex-start;
+    }
+    .jcr-row:last-child { border-bottom: none; }
+    .jcr-key {
+      font-family: ui-monospace, monospace;
+      color: var(--link); font-size: 10.5px;
+      white-space: nowrap; flex-shrink: 0; width: 42%; word-break: break-all;
+    }
+    .jcr-val {
+      font-family: ui-monospace, monospace;
+      color: rgba(var(--tint), 0.75); font-size: 10.5px;
+      word-break: break-all; line-height: 1.5;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 8px 14px; font-size: 11.5px;
+      display: none; align-items: center; gap: 6px;
+      z-index: 999;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+    }
+    .toast.show { display: flex; }
+    .toast-btn {
+      margin-left: auto; background: transparent; border: none;
+      color: inherit; font: inherit; font-weight: 700; text-decoration: underline;
+      cursor: pointer; padding: 0 4px;
+    }
+    .toast.success { background: #072714; color: #56d364; border-top: 1px solid rgba(86, 211, 100, 0.3); }
+    .toast.error   { background: #2d0709; color: #ff8389; border-top: 1px solid rgba(255, 131, 137, 0.3); }
+    .toast.info    { background: #0a2858; color: #78a9ff; border-top: 1px solid rgba(120, 169, 255, 0.3); }
+    .toast.warn    { background: #3d1f00; color: #f1c21b; border-top: 1px solid rgba(241, 194, 27, 0.3); }
+
+    /* ── Not configured ──────────────────────────────────────────── */
+    .not-configured { padding: 28px 16px; text-align: center; }
+    .not-configured h2 { font-size: 14px; margin-bottom: 8px; color: var(--fg); font-weight: 700; }
+    .setup-steps { text-align: left; margin: 0 0 16px; padding-left: 18px; font-size: 11.5px; color: var(--sub); line-height: 1.6; }
+
+    /* ── Keyboard focus & reduced motion ─────────────────────────── */
+    button:focus-visible, summary:focus-visible, input:not(.search-input):focus-visible, .jcr-path:focus-visible {
+      outline: 2px solid var(--accent2); outline-offset: -2px;
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg id="logoSpiral" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg>
+      </div>
+      <div class="title">AEM Orbit</div>
+      <span class="env-badge" id="envBadge">
+        <svg class="env-lock" id="envLock" width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none">
+          <path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6z"/>
+        </svg>
+        <span id="envBadgeLabel">—</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="refreshBtn" title="Refresh status" aria-label="Refresh status">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      </button>
+      <button class="icon-btn" id="optionsBtn" title="Options" aria-label="Open options">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96a7.1 7.1 0 00-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.49.49 0 00.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Not configured -->
+  <div class="not-configured" id="notConfigured" style="display:none;">
+    <h2>Let's get you set up</h2>
+    <ol class="setup-steps">
+      <li>Open settings and enter your AEM <b>Author address</b> (for example <code>https://author-p123-e456.adobeaemcloud.com</code>).</li>
+      <li>Choose how you sign in, then press <b>Test connection</b>.</li>
+      <li>Open any AEM page. The toolbar appears at the bottom of the page.</li>
+    </ol>
+    <button class="action-btn primary" id="openOptionsBtn">Open settings</button>
+  </div>
+
+  <!-- Main content -->
+  <div id="mainContent" style="display:none;">
+
+    <!-- Hero Page Info Card -->
+    <div class="page-info">
+      <div class="page-url" id="pageUrl">—</div>
+      <div class="viewing-note" id="viewingNote" style="display:none;">
+        <span>Showing a searched page, not this tab.</span>
+        <button class="viewing-back" id="viewingBack" type="button">Back to this tab</button>
+      </div>
+      <div class="jcr-path" id="jcrPath" title="Click to copy JCR path" role="button" tabindex="0">—</div>
+      <div class="status-row">
+        <span class="status-pill unknown" id="statusPill">Checking…</span>
+        <span class="status-pill unknown" id="previewPill" style="display:none;"></span>
+        <span class="status-pill warn" id="queuePill" style="display:none;"></span>
+        <span class="last-mod" id="lastMod"></span>
+        <button class="fav-btn" id="favBtn" title="Add to favourites" aria-label="Add to favourites">☆</button>
+      </div>
+      <div class="page-details" id="pageDetails"></div>
+    </div>
+
+    <!-- Quick Search -->
+    <div class="search-bar">
+      <div class="search-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </div>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search pages by title or name..." autocomplete="off" aria-label="Search pages by title or name..." />
+      <button class="search-btn" id="searchBtn">Search</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+
+    <!-- Row 1: Edit, View, Live, Props -->
+    <div class="primary-row primary-row-4">
+      <button class="big-btn" id="editBtn" title="Open in AEM Author Editor">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Edit
+      </button>
+      <button class="big-btn" id="viewBtn" title="View the page as visitors see it (Author, editing UI off)">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+        View
+      </button>
+      <button class="big-btn" id="previewBtn" title="Open the live page (Dispatcher CDN, or Publish if no CDN host is set)">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+        Live
+      </button>
+      <button class="big-btn" id="propertiesBtn" title="Open Page Properties">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+        Props
+      </button>
+    </div>
+
+    <!-- Row 2: Replication actions (Publish to Preview shows only on environments with a Preview tier) -->
+    <div class="primary-row primary-row-repl no-preview" id="replRow">
+      <button class="big-btn publish" id="publishBtn" title="Publish page">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        Publish
+      </button>
+      <button class="big-btn unpub" id="unpublishBtn" title="Unpublish page">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Unpublish
+      </button>
+      <button class="big-btn publish" id="publishPreviewBtn" title="Publish to the Preview tier" style="display:none;">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+        Preview
+      </button>
+      <button class="big-btn" id="treeActivateBtn" title="Publish this page and all sub-pages">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+        Tree Publish
+      </button>
+      <button class="big-btn unpub" id="treeDeactivateBtn" title="Unpublish this page and all sub-pages">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Tree Unpub
+      </button>
+      <button class="big-btn" id="bulkBtn" title="Publish or unpublish a list of pages">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        Bulk Publish
+      </button>
+    </div>
+
+    <!-- Workspace -->
+    <details class="group" id="groupWorkspace" open>
+      <summary>Workspace</summary>
+      <div class="action-grid">
+        <button class="action-btn" id="lockBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6zm3 11a2 2 0 110-4 2 2 0 010 4z"/></svg>
+          <span id="lockBtnLabel">Lock Page</span>
+        </button>
+        <button class="action-btn" id="compareBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M10 3H5a2 2 0 00-2 2v14a2 2 0 002 2h5v2h2V1h-2v2zm0 15H5l5-6v6zm9-15h-5v2h5v13l-5-6v9h5a2 2 0 002-2V5a2 2 0 00-2-2z"/></svg>
+          Compare Envs
+        </button>
+        <button class="action-btn" id="listsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          Recent &amp; Favs
+        </button>
+        <button class="action-btn" id="quickLinksBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+          Quick Links
+        </button>
+        <button class="action-btn" id="findReplaceBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          Find &amp; Replace
+        </button>
+        <button class="action-btn" id="actionLogBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 0a1 1 0 110 2 1 1 0 010-2zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          Action History
+        </button>
+        <button class="action-btn" id="versionsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          Versions
+        </button>
+        <button class="action-btn" id="createVersionBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+          Save Version
+        </button>
+        <button class="action-btn" id="urlVariantsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1 0 1.71-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+          Copy URLs
+        </button>
+      </div>
+    </details>
+
+    <!-- Developer actions: shown only when Developer Mode is on (Settings → Developer Mode) -->
+    <details class="group" id="groupDeveloper" style="display:none;">
+      <summary>Developer Tools</summary>
+      <div class="action-grid">
+        <button class="action-btn" id="jcrBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg>
+          JCR
+        </button>
+        <button class="action-btn" id="crxdeBtn" title="Open page in CRXDE Lite">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+          CRXDE Lite
+        </button>
+        <button class="action-btn" id="overlayBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+          Overlays
+        </button>
+        <button class="action-btn" id="dispatcherFlushBtn" title="Invalidate / Flush Dispatcher cache">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          Flush Cache
+        </button>
+        <button class="action-btn danger full-width" id="deleteBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          Delete this page…
+        </button>
+      </div>
+    </details>
+
+    <!-- JCR / Versions / URL panel -->
+    <div class="panel" id="mainPanel">
+      <div class="panel-toolbar">
+        <div class="panel-toolbar-left">
+          <span class="panel-title" id="panelTitle">JCR Properties</span>
+        </div>
+        <button class="icon-btn" id="closePanelBtn" title="Close" aria-label="Close panel">
+          <svg width="11" height="11" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="panel-content" id="panelContent"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
