@@ -569,9 +569,14 @@ async function showPolicyNotice() {
       banner = document.createElement('div');
       banner.id = 'lockBanner';
       banner.className = 'asp-alert asp-alert-info';
-      banner.style.cssText = 'background: rgba(69, 137, 255, 0.15); border: 1px solid #4589ff; padding: 12px; border-radius: 6px; margin: 16px 0; font-size: 13px; font-weight: 500;';
+      banner.style.cssText = 'background: rgba(69, 137, 255, 0.15); border: 1px solid #4589ff; padding: 12px 16px; border-radius: 8px; margin: 0 0 20px; font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 8px; box-sizing: border-box;';
       banner.textContent = '🔒 Configuration is managed by your administrator policy. Settings are read-only.';
-      document.querySelector('.page')?.prepend(banner);
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        topbar.after(banner);
+      } else {
+        document.querySelector('.page')?.prepend(banner);
+      }
     }
     document.querySelectorAll('input:not([type="button"]), select, textarea').forEach((el) => {
       el.disabled = true;

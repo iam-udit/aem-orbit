@@ -9,11 +9,41 @@ import { OVERLAY_SOURCE } from './overlay.mjs'
 
 export const W = 1920
 export const H = 1080
+
+function getScreenLayout() {
+  const js = `ObjC.import('AppKit');
+    const count = $.NSScreen.screens.count;
+    let chosen = { index: 0, left: 0, width: 1920 };
+    for (let i = 0; i < count; i++) {
+      const s = $.NSScreen.screens.objectAtIndex(i).frame;
+      if (s.size.width >= 1920) {
+        chosen = { index: i, left: s.origin.x, width: s.size.width };
+        break;
+      }
+    }
+    JSON.stringify(chosen)`
+  const res = spawnSync('osascript', ['-l', 'JavaScript', '-e', js], { encoding: 'utf8' })
+  try { return JSON.parse(res.stdout) } catch { return { index: 0, left: 0, width: 1920 } }
+}
+
+export const SCREEN_LAYOUT = getScreenLayout()
+export const WINDOW_LEFT = Number(process.env.ORBIT_WINDOW_LEFT ?? SCREEN_LAYOUT.left)
+export const SCREEN_DEVICE = process.env.ORBIT_SCREEN_DEVICE || String(SCREEN_LAYOUT.index + 1)
+export const WINDOW_TOP = Number(process.env.ORBIT_WINDOW_TOP || 30) // below the macOS menu bar
+
+/** Park the physical OS mouse completely outside the Chrome window so it never hovers or triggers tooltips. */
+export function parkPhysicalMouse() {
+  const parkX = WINDOW_LEFT + (SCREEN_LAYOUT.width > 1940 ? Math.min(SCREEN_LAYOUT.width - 20, 2500) : SCREEN_LAYOUT.width - 10)
+  const js = `ObjC.import('AppKit'); ObjC.import('CoreGraphics');
+    const p = { x: ${parkX}, y: 500 };
+    const e = $.CGEventCreateMouseEvent($(), $.kCGEventMouseMoved, p, 0);
+    $.CGEventPost($.kCGHIDEventTap, e); 'ok'`
+  spawnSync('osascript', ['-l', 'JavaScript', '-e', js], { encoding: 'utf8' })
+}
+
 // Screen mode (the default; ORBIT_SCREEN=0 = legacy page-only CDP screencast): record the real Chrome window (tab strip + URL bar + page) from the display with ffmpeg. The window is placed at 1920x1080, so the output is 1920x1080 with the browser UI.
 // ORBIT_SCREEN_DEVICE = avfoundation video device index of the display holding the window (see `ffmpeg -f avfoundation -list_devices true -i ""`).
 const CDP_HTTP = process.env.ORBIT_CDP || 'http://127.0.0.1:9333'
-const SCREEN_DEVICE = process.env.ORBIT_SCREEN_DEVICE || '1'
-const WINDOW_TOP = Number(process.env.ORBIT_WINDOW_TOP || 30) // below the macOS menu bar
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2) // easeInOutCubic
 
 export class Recorder {
@@ -44,6 +74,9 @@ export class Recorder {
     const t = target
     await t.send('Page.enable')
     await t.send('Runtime.enable')
+    t.on('Page.javascriptDialogOpening', async () => {
+      await t.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {})
+    })
     await this.#pin(t)
     await t.send('Page.addScriptToEvaluateOnNewDocument', { source: OVERLAY_SOURCE })
     // a new document (same-tab navigation, redirects) starts with an empty overlay: restore title/tag
@@ -82,15 +115,22 @@ export class Recorder {
     const me = this.tab.info.id
     for (const x of await listTargets()) if (x.type === 'page' && x.id !== me) await fetch(`${CDP_HTTP}/json/close/${x.id}`).catch(() => {})
     const { windowId } = await this.tab.send('Browser.getWindowForTarget')
-    await this.tab.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal', left: 0, top: WINDOW_TOP, width: W, height: H } })
+    await this.tab.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal', left: WINDOW_LEFT, top: WINDOW_TOP, width: W, height: H } })
+    spawnSync('osascript', ['-l', 'JavaScript', '-e', `
+      const app = Application('Google Chrome for Testing');
+      if (app.windows.length > 0) app.windows[0].bounds = { x: ${WINDOW_LEFT}, y: ${WINDOW_TOP}, width: ${W}, height: ${H} };
+    `])
     await fetch(`${CDP_HTTP}/json/activate/${me}`).catch(() => {})
     spawnSync('open', ['-a', 'Google Chrome for Testing'])
+    // Park the physical OS mouse outside the Chrome window to prevent browser hover tooltips and duplicate cursors
+    parkPhysicalMouse()
     await sleep(800)
   }
 
   async #startScreen() {
     this.capFile = path.join(this.dir, 'capture.mp4')
     spawnSync('open', ['-a', 'Google Chrome for Testing'])
+    parkPhysicalMouse()
     this.ffErr = ''
     this.ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'avfoundation', '-framerate', '60', '-capture_cursor', '0', '-pixel_format', 'nv12',
       '-i', `${SCREEN_DEVICE}:none`, '-vf', `crop=${W}:${H}:0:${WINDOW_TOP},format=yuv420p`,
@@ -299,13 +339,21 @@ export class Recorder {
 
   // ---- on-screen annotations ----------------------------------------------------------------
   /** Chapter title card: shown at the start only. It clears itself after `ms` (also across navigations), so it is not in every frame. */
-  async title(html, sub = '', ms = 6500) {
+  async title(html, sub = '', ms = 4500) {
     clearTimeout(this.titleTimer)
     this.titleHtml = html; this.titleSub = sub; this.#reapply(this.tab)
+    if (this.popup?.page) this.#reapply(this.popup.page)
     if (ms > 0) this.titleTimer = setTimeout(() => { this.untitle().catch(() => {}) }, ms)
     await sleep(60)
   }
-  async untitle() { clearTimeout(this.titleTimer); this.titleHtml = ''; this.titleSub = ''; this.#reapply(this.tab); await sleep(60) }
+  async untitle() {
+    clearTimeout(this.titleTimer)
+    this.titleHtml = ''
+    this.titleSub = ''
+    this.#reapply(this.tab)
+    if (this.popup?.page) this.#reapply(this.popup.page)
+    await sleep(60)
+  }
   async tag(text) { this.tagText = text || ''; this.#reapply(this.tab); await sleep(60) }
 
   async close() { this.tab.close() }

@@ -124,9 +124,13 @@ def dev():
     fill(h, f'{BASE}/tree-demo/c/c1', 'Tree C1', 'A grandchild page.')
 
     create(h, BASE, 'bulk', 'Bulk Pages')
+    fill(h, f'{BASE}/bulk', 'Bulk Pages', 'Collection of pages used for bulk operations.', PUBLISHED_IMG)
     nums = [f'p{i:02d}' for i in range(1, 51)]
+    def make_bulk_dev(n):
+        create(h, f'{BASE}/bulk', n, f'Bulk Page {n[1:]}')
+        fill(h, f'{BASE}/bulk/{n}', f'Bulk Page {n[1:]}', 'High-scale bulk replication across environments.', PUBLISHED_IMG)
     with ThreadPoolExecutor(8) as pool:
-        list(pool.map(lambda n: create(h, f'{BASE}/bulk', n, f'Bulk Page {n[1:]}'), nums))
+        list(pool.map(make_bulk_dev, nums))
 
     clean = [f'{BASE}/{n}' for n in ('publish-demo', 'preview-demo', 'lock-demo', 'tree-demo')] + [f'{BASE}/tree-demo/{n}' for n in 'abcd'] \
         + [f'{BASE}/tree-demo/c/c1'] + [f'{BASE}/bulk/{n}' for n in nums[:1]]
@@ -146,8 +150,10 @@ def prod():
     create(h, BASE, 'guard-demo', 'Guard Demo')
     fill(h, f'{BASE}/guard-demo', 'Guard Demo', 'A page on the protected Prod environment.')
     create(h, BASE, 'bulk', 'Bulk Pages')
+    fill(h, f'{BASE}/bulk', 'Bulk Pages', 'Collection of pages used for bulk operations.', PUBLISHED_IMG)
     for n in ('p01', 'p02', 'p03'):
         create(h, f'{BASE}/bulk', n, f'Bulk Page {n[1:]}')
+        fill(h, f'{BASE}/bulk/{n}', f'Bulk Page {n[1:]}', 'High-scale bulk replication across environments on Prod.', PUBLISHED_IMG)
     for p in (f'{BASE}/guard-demo', f'{BASE}/bulk/p01'):
         publish_references(h, p)
     print('prod ready:', BASE)

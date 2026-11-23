@@ -191,14 +191,15 @@ export async function migrateSecretsToLocal() {
 export async function getConfig() {
   const [data, local, session, managedStored] = await Promise.all([
     storageGet('sync', CONFIG_DEFAULTS),
-    storageGet('local', { secrets: {} }),
+    storageGet('local', { secrets: {}, _managedShim: null }),
     storageGet('session', { secrets: {} }),   // "Keep credentials for this browser session only"
     // Enterprise policy / pre-provisioned team settings. `null` returns everything: an empty
     // defaults object `{}` would return nothing at all.
     storageGet('managed', null),
   ]);
+  const rawManaged = local._managedShim ? { ...managedStored, ...local._managedShim } : managedStored;
   // null in every real build; only `npm run build:policy-test` fills it (see shared/policy-override.js).
-  const managed = POLICY_OVERRIDE ? { ...managedStored, controlPolicy: POLICY_OVERRIDE } : managedStored;
+  const managed = POLICY_OVERRIDE ? { ...rawManaged, controlPolicy: POLICY_OVERRIDE } : rawManaged;
   const secrets    = { ...(local.secrets || {}), ...(session.secrets || {}) };
   const storedEnvs = { ...(data.environments || {}), ...(managed.environments || {}) };
   const keys = [...new Set([...BUILTIN_ENV_KEYS, ...Object.keys(storedEnvs)])];

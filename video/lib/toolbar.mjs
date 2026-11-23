@@ -25,7 +25,11 @@ export async function openMenu(rec, selector) {
 
 export async function menuItemRect(rec, text) {
   return rec.tab.eval(`(() => { const it = [...document.querySelectorAll('#asp-menu .asp-menu-item')]
-    .find((b) => b.textContent.trim().toLowerCase().startsWith(${JSON.stringify(text.toLowerCase())})); if (!it) return null
+    .find((b) => {
+      const s = b.textContent.trim().toLowerCase()
+      const t = ${JSON.stringify(text.toLowerCase())}
+      return s.startsWith(t) || s.includes(t)
+    }); if (!it) return null
     const r = it.getBoundingClientRect(); return { cx: r.x + r.width / 2, cy: r.y + r.height / 2 } })()`)
 }
 

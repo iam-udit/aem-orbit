@@ -6,18 +6,25 @@
 import { spawnSync } from 'node:child_process'
 import { listTargets, sleep, Target } from './cdp.mjs'
 import { OVERLAY_SOURCE } from './overlay.mjs'
+import { parkPhysicalMouse, WINDOW_LEFT } from './recorder.mjs'
 
-// Pinned Orbit icon: screen coordinates with the window at left 0 / top 30 (see recorder.mjs). Override with ORBIT_ICON_X / ORBIT_ICON_Y.
-const ICON_X = Number(process.env.ORBIT_ICON_X || 1771)
+// Pinned Orbit icon: screen coordinates with the window at WINDOW_LEFT / top 30 (see recorder.mjs). Override with ORBIT_ICON_X / ORBIT_ICON_Y.
+const ICON_X = Number(process.env.ORBIT_ICON_X ?? (WINDOW_LEFT + 1771))
 const ICON_Y = Number(process.env.ORBIT_ICON_Y || 92)
 const WINDOW_TOP = Number(process.env.ORBIT_WINDOW_TOP || 30)
 
 /** A real mouse move + click at screen (x, y) through Quartz events (what a physical mouse does). */
 function osClick(x, y) {
-  const js = `ObjC.import('CoreGraphics'); const p = { x: ${x}, y: ${y} };
-    const ev = (t) => { const e = $.CGEventCreateMouseEvent($(), t, p, 0); $.CGEventSetIntegerValueField(e, $.kCGMouseEventClickState, 1); return e };
-    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventMouseMoved)); delay(0.5);
-    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventLeftMouseDown)); delay(0.09); $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventLeftMouseUp)); 'ok'`
+  const js = `ObjC.import('AppKit'); ObjC.import('CoreGraphics');
+    const main = $.NSScreen.screens.objectAtIndex(0).frame;
+    const sw = main.size.width;
+    const pAway = sw > 1940 ? { x: Math.min(sw - 20, 2500), y: 500 } : { x: sw - 10, y: 10 };
+    const ev = (t, pt) => { const e = $.CGEventCreateMouseEvent($(), t, pt, 0); $.CGEventSetIntegerValueField(e, $.kCGMouseEventClickState, 1); return e };
+    const pClick = { x: ${x}, y: ${y} };
+    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventMouseMoved, pClick)); delay(0.04);
+    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventLeftMouseDown, pClick)); delay(0.05);
+    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventLeftMouseUp, pClick)); delay(0.04);
+    $.CGEventPost($.kCGHIDEventTap, ev($.kCGEventMouseMoved, pAway)); 'ok'`
   const r = spawnSync('osascript', ['-l', 'JavaScript', '-e', js], { encoding: 'utf8' })
   if (r.status !== 0) throw new Error(`OS click failed: ${r.stderr.slice(0, 200)}`)
 }
@@ -41,7 +48,13 @@ export async function openPopup(rec) {
   osClick(ICON_X, ICON_Y)
 
   let info
-  for (let i = 0; i < 40 && !info; i++) { info = await popupTarget(); if (!info) await sleep(150) }
+  for (let i = 0; i < 40 && !info; i++) {
+    info = await popupTarget()
+    if (!info) {
+      if (i === 12 || i === 24) osClick(ICON_X, ICON_Y)
+      await sleep(150)
+    }
+  }
   if (!info) throw new Error('the popup did not open (is the extension pinned and Chrome in front?)')
   const pop = await new Target(info).open()
   await pop.send('Page.enable')
@@ -59,6 +72,7 @@ export async function openPopup(rec) {
 
   return {
     close: async () => {
+      parkPhysicalMouse()
       await pop.eval('window.close()').catch(() => {})
       pop.close()
       rec.tab = page

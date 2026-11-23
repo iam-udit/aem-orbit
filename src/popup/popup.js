@@ -812,6 +812,7 @@ document.getElementById('bulkBtn').addEventListener('click', () => {
           <span class="list-tag ${p.status === 'published' ? 'ok' : p.status === 'modified' ? 'warn' : 'bad'}">${escHtml(p.status)}</span>
         </div>
       `).join('');
+    resBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
 
   const run = async (cmd) => {

@@ -10,18 +10,25 @@ A Chrome extension for AEM Cloud and AEM 6.5, built for both developers and auth
 
 Watch AEM Orbit being used, chapter by chapter, recorded live in a real browser against real AEM author and publish instances:
 
-**[Open the video tutorial](https://iam-udit.github.io/aem-orbit/tutorial/)** (all chapters in one player, with a chapter list, speed control and auto-play of the next chapter)
+**[Open the video tutorial](https://iam-udit.github.io/aem-orbit/tutorial/)** (all chapters in one responsive player, with a chapter list, speed control and auto-play of the next chapter)
 
 | # | Chapter | What it covers |
 |---|---|---|
-| 0 | Introduction | What AEM Orbit is |
-| 1 | The Orb and the fan | Orb, seven-leaf fan, environment switch, JCR search |
-| 1b | Positioning the Orb | Drag, persist, long-press summon, Orb vs Mini-Bar |
-| 2 | Toolbar and navigation | Status, tiers, cross-environment jumps, locales, toasts |
-| 3 | Authoring and replication | Pre-flight, preview tier, locks, tree and bulk publish, Prod Guard |
-| 4 | Developer tools | JCR tree, component and asset inspectors, cache headers, hard reload |
+| 0 | Introduction & Architecture | What AEM Orbit is, multi-tier control surface, client-side zero-trust security |
+| 1 | The Orb and the fan | Animated Orb, 7-leaf radial fan, environment switch, live JCR property search |
+| 1b | Positioning the Orb | Drag to all edges, position persistence across reloads, long-press summon, Mini-Bar |
+| 2 | Toolbar and navigation | Tier switcher (Edit, View, Preview, Publish, CDN), cross-env switching, MSM locales, undo toasts |
+| 3 | Authoring and replication | Quick publish, pre-flight checks, preview tier, page lock, tree and bulk publish, Prod Guard |
+| 4 | Developer tools | JCR tree, Stage vs Dev diff, component and DAM cards, CFM headless JSON, cache headers, hard reload |
+| 5 | Content synchronization | Downstream content sync (Push/Pull), pre-sync property diff, automatic version backup, instant rollback |
+| 6 | SEO and accessibility audit | In-page audits (score ring), benchmark healthy (92/100) vs unoptimized (32/100) pages, broken 404 links |
+| 7 | Popup Workspace Console | Quick action hub: cross-env SHA-256 compare, recents, starred pages, audit log CSV, find & replace |
+| 8 | Edge Delivery & Universal Editor | EDS live vs preview (.aem.page / .aem.live) switching, Universal Editor 1-click launch, Cloud Manager links |
+| 9 | Enterprise governance & policy | Multi-brand site profiles, Chrome Managed Policy simulation (`lockConfiguration`, `enforceSessionAuthOnly`) |
+| 10 | Settings & Options Console | 13-area configuration matrix, environment diagnostics with latency ping, custom button layout editor |
+| 11 | Keyboard Shortcuts & Palette | Cmd+K Command Palette, Option+Shift+K toolbar toggle, arrow key navigation, universal Escape dismissal |
 
-More chapters are added as they are recorded. Maintainers: see [`docs/tutorial/README.md`](docs/tutorial/README.md).
+Also available as a single continuous 45-minute walkthrough with embedded chapter markers and a 3-minute executive highlights cut. Maintainers: see [`docs/tutorial/README.md`](docs/tutorial/README.md).
 
 ---
 
