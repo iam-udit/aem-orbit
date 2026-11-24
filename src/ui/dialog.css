@@ -1,0 +1,201 @@
+/**
+ * AEM Orbit — modal dialog styles (confirm / prompt).
+ * Same dark theme as the toolbar. Used by the toolbar, the popup and the options page.
+ * Everything is namespaced under .asp-dlg* so it cannot collide with host pages.
+ */
+
+.asp-dlg-overlay {
+  all: initial;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.5);
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.asp-dlg-overlay *, .asp-dlg-overlay *::before, .asp-dlg-overlay *::after { box-sizing: border-box; }
+
+.asp-dlg {
+  display: flex;
+  flex-direction: column;
+  width: 440px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  background: rgba(28, 28, 28, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f4f4f4;
+}
+
+/* Protected environment: same red ring as the toolbar */
+.asp-dlg.asp-dlg-protected {
+  border-color: #fa4d56;
+  box-shadow: 0 0 0 2px rgba(250, 77, 86, 0.45), 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.asp-dlg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(26, 28, 30, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.asp-dlg-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.asp-dlg-tag {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.asp-dlg-tag-protected { background: rgba(218, 30, 40, 0.35); color: #ff8389; }
+.asp-dlg-env-local     { background: rgba(0, 67, 206, 0.35);  color: #a8c7fa; }
+.asp-dlg-env-dev       { background: rgba(0, 125, 121, 0.35); color: #3ddbd9; }
+.asp-dlg-env-stage     { background: rgba(178, 134, 0, 0.35); color: #f1c21b; }
+.asp-dlg-env-prod      { background: rgba(218, 30, 40, 0.35); color: #ff8389; }
+.asp-dlg-env-custom    { background: rgba(105, 41, 196, 0.35); color: #d4bbff; }
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+
+.asp-dlg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.asp-dlg-msg {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.asp-dlg-detail {
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  overflow-wrap: anywhere;
+}
+
+.asp-dlg-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.asp-dlg-input {
+  all: unset;
+  display: block;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  box-sizing: border-box;
+  transition: border-color 0.1s;
+}
+.asp-dlg-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.asp-dlg-input:focus { border-color: rgba(69, 137, 255, 0.8); }
+.asp-dlg-protected .asp-dlg-input:focus { border-color: rgba(250, 77, 86, 0.8); }
+
+/* ── Footer / buttons ─────────────────────────────────────────────────────── */
+
+.asp-dlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px 14px;
+}
+
+.asp-dlg-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  min-width: 76px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 100px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  box-sizing: border-box;
+}
+.asp-dlg-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.asp-dlg-btn:focus-visible { outline: 2px solid #4589ff; outline-offset: 2px; }
+
+.asp-dlg-primary { background: #0f62fe; border-color: #0f62fe; color: #fff; }
+.asp-dlg-primary:hover:not(:disabled) { background: #0353e9; color: #fff; }
+.asp-dlg[data-tone="danger"] .asp-dlg-primary { background: #da1e28; border-color: #da1e28; }
+.asp-dlg[data-tone="danger"] .asp-dlg-primary:hover:not(:disabled) { background: #ba1b23; }
+.asp-dlg[data-tone="danger"] .asp-dlg-btn:focus-visible { outline-color: #fa4d56; }
+.asp-dlg[data-tone="warn"] .asp-dlg-primary { background: #f1c21b; border-color: #f1c21b; color: #161616; }
+.asp-dlg[data-tone="warn"] .asp-dlg-primary:hover:not(:disabled) { background: #d2a106; color: #161616; }
+.asp-dlg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+/* Keyed on data-asp-theme, which syncTheme() sets on <html> from the Settings theme button (Auto follows the browser theme). Dark is the default. */
+
+html[data-asp-theme="light"] .asp-dlg-overlay { background: rgba(0, 0, 0, 0.35); }
+html[data-asp-theme="light"] .asp-dlg { background: #ffffff; color: #161616; border-color: rgba(0, 0, 0, 0.16); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); }
+html[data-asp-theme="light"] .asp-dlg.asp-dlg-protected { border-color: #da1e28; box-shadow: 0 0 0 2px rgba(218, 30, 40, 0.4), 0 8px 32px rgba(0, 0, 0, 0.25); }
+html[data-asp-theme="light"] .asp-dlg-head { background: #f4f4f4; border-bottom-color: rgba(0, 0, 0, 0.1); }
+html[data-asp-theme="light"] .asp-dlg-title { color: rgba(0, 0, 0, 0.8); }
+html[data-asp-theme="light"] .asp-dlg-tag-protected, html[data-asp-theme="light"] .asp-dlg-env-prod { color: #a2191f; }
+html[data-asp-theme="light"] .asp-dlg-env-local { color: #0043ce; }
+html[data-asp-theme="light"] .asp-dlg-env-dev { color: #005d5d; }
+html[data-asp-theme="light"] .asp-dlg-env-stage { color: #684e00; }
+html[data-asp-theme="light"] .asp-dlg-env-custom { color: #6929c4; }
+html[data-asp-theme="light"] .asp-dlg-msg { color: rgba(0, 0, 0, 0.78); }
+html[data-asp-theme="light"] .asp-dlg-detail { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.1); color: #262626; }
+html[data-asp-theme="light"] .asp-dlg-label { color: rgba(0, 0, 0, 0.6); }
+html[data-asp-theme="light"] .asp-dlg-input { background: #ffffff; border-color: rgba(0, 0, 0, 0.3); color: #161616; }
+html[data-asp-theme="light"] .asp-dlg-input::placeholder { color: rgba(0, 0, 0, 0.35); }
+html[data-asp-theme="light"] .asp-dlg-btn { border-color: rgba(0, 0, 0, 0.25); color: rgba(0, 0, 0, 0.75); }
+html[data-asp-theme="light"] .asp-dlg-btn:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); color: #161616; }
+html[data-asp-theme="light"] .asp-dlg-primary, html[data-asp-theme="light"] .asp-dlg-primary:hover:not(:disabled) { color: #fff; }
+html[data-asp-theme="light"] .asp-dlg[data-tone="warn"] .asp-dlg-primary, html[data-asp-theme="light"] .asp-dlg[data-tone="warn"] .asp-dlg-primary:hover:not(:disabled) { color: #161616; }
+
+@media (prefers-reduced-motion: reduce) {
+  .asp-dlg-input, .asp-dlg-btn { transition: none; }
+}

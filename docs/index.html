@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; media-src 'self' https://github.com https://*.githubusercontent.com; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="AEM Orbit is a Chrome extension for Adobe Experience Manager: an in-page Orb and toolbar, publishing with pre-flight checks, content sync, inspectors and audits.">
+  <title>AEM Orbit — Chrome extension for Adobe Experience Manager</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./">
+      <img class="logo" src="icon.png" width="40" height="40" alt="">
+      <span>AEM Orbit</span>
+    </a>
+    <nav aria-label="Site">
+      <a href="tutorial/">Video tutorial</a>
+      <a href="https://github.com/iam-udit/aem-orbit#readme">README</a>
+      <a href="https://github.com/iam-udit/aem-orbit">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="kicker">Chrome extension &middot; Manifest V3 &middot; 1.0.0-beta</p>
+      <h1>Author, publish and inspect AEM content without leaving the page</h1>
+      <p class="lead">AEM Orbit adds a floating toolbar to AEM Author, Preview, Publish and Dispatcher pages, plus a popup workspace for work that spans several pages. It works with AEM as a Cloud Service and AEM 6.5.</p>
+      <p class="cta">
+        <a class="btn primary" href="https://github.com/iam-udit/aem-orbit/releases/tag/v1.0.0-beta">Download the beta</a>
+        <a class="btn" href="tutorial/">Watch the video tutorial</a>
+      </p>
+      <p class="note">The beta is installed as an unpacked extension: unzip the download, open <code>chrome://extensions</code>, turn on Developer mode and choose <b>Load unpacked</b>.</p>
+    </section>
+
+    <section class="teaser-showcase" aria-labelledby="teaser-heading">
+      <div class="teaser-card">
+        <div class="teaser-header">
+          <div class="teaser-title-group">
+            <span class="teaser-badge">1-Minute Overview</span>
+            <h2 id="teaser-heading">See Orbit for AEM in Action</h2>
+          </div>
+          <a class="teaser-link" href="tutorial/">Watch the full 13-chapter tutorial &rarr;</a>
+        </div>
+        <div class="video-frame">
+          <video controls playsinline preload="metadata" poster="tutorial/posters/orbit-for-aem-teaser.jpg">
+            <source src="tutorial/videos/orbit-for-aem-teaser-1min.mp4" type="video/mp4">
+            <source src="https://github.com/iam-udit/aem-orbit/releases/download/tutorial-videos/orbit-for-aem-teaser-1min.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="features">
+      <h2 id="features">What it does</h2>
+      <ul class="cards">
+        <li>
+          <h3>In-page Orb and toolbar</h3>
+          <p>A floating Orb opens a seven-leaf fan, or a full toolbar. Jump between Edit, View, Preview, Published and Live, and between Local, Dev, Stage and Prod on the same page.</p>
+        </li>
+        <li>
+          <h3>Safe publishing</h3>
+          <p>Publish, unpublish, tree and bulk replication, with a reference check first, a dry run for trees, and a typed confirmation on protected environments.</p>
+        </li>
+        <li>
+          <h3>Content sync</h3>
+          <p>Copy a page between environments with a property diff first, an automatic version backup, and one-click undo. By default content only moves from a higher environment to a lower one.</p>
+        </li>
+        <li>
+          <h3>Developer inspectors</h3>
+          <p>A JCR tree, component and asset inspectors, Content Fragment details, a cache-header inspector, and deep links to CRXDE Lite, Package Manager and the JSON endpoints.</p>
+        </li>
+        <li>
+          <h3>SEO and accessibility audit</h3>
+          <p>A page quality score with SEO and accessibility checks, and a link health scan, run on the page you are looking at.</p>
+        </li>
+        <li>
+          <h3>Workspace popup</h3>
+          <p>Page search, cross-environment compare, versions, URL variants, quick links, an action history log, find and replace, and Dispatcher flush.</p>
+        </li>
+        <li>
+          <h3>Edge Delivery and Universal Editor</h3>
+          <p>Recognises <code>.aem.page</code> and <code>.aem.live</code> hosts, switches between them, and opens the page in the Universal Editor.</p>
+        </li>
+        <li>
+          <h3>Enterprise controls</h3>
+          <p>Managed policies can lock the settings and switch features off per environment, and brand profiles apply site-specific content roots and URL mappings.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="privacy">
+      <h2 id="privacy">Privacy and security</h2>
+      <p>The extension has no analytics or telemetry and makes no calls to any server other than the AEM hosts you configure. It asks for access to those hosts only. With Browser Session sign-in it stores no credentials at all.</p>
+      <p><a href="https://github.com/iam-udit/aem-orbit/blob/main/docs/PRIVACY_POLICY.md">Read the privacy policy</a></p>
+    </section>
+
+    <section aria-labelledby="docs">
+      <h2 id="docs">Documentation</h2>
+      <ul class="links">
+        <li><a href="tutorial/">Video tutorial</a> <span>Chapter by chapter, recorded in a real browser against real AEM instances.</span></li>
+        <li><a href="HLD.pdf">High-level design</a> <span>System context, security boundaries and the storage model.</span></li>
+        <li><a href="LLD.pdf">Low-level design</a> <span>Module specifications, the sync engine and action contracts.</span></li>
+        <li><a href="https://github.com/iam-udit/aem-orbit#readme">README</a> <span>The full feature list and settings.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>AEM Orbit is an independent, community project. It is not affiliated with, endorsed by, or sponsored by Adobe Inc. &ldquo;Adobe&rdquo;, &ldquo;Adobe Experience Manager&rdquo; and &ldquo;AEM&rdquo; are trademarks of Adobe Inc., used here only to describe compatibility.</p>
+    <p>Licensed under the <a href="https://github.com/iam-udit/aem-orbit/blob/main/LICENSE">Apache License 2.0</a>.</p>
+  </footer>
+</body>
+</html>

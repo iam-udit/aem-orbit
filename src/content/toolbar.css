@@ -1,0 +1,1243 @@
+/**
+ * AEM Orbit — Toolbar Styles
+ * Layout: fixed bottom-center horizontal pill bar (Adobe Sidekick style).
+ * All selectors are namespaced under #aem-sidekick-pro-root / .asp-*
+ * to prevent collisions with any host page styles.
+ */
+
+/* ── Theme variables ──────────────────────────────────────────────────────── */
+/* Popups live on <body>, outside the root, so the variables are set on each
+   top-level selector. Dark by default; the light look applies when the content script sets data-asp-theme="light" on <html>
+   (the Settings theme button: Auto follows the browser theme, Light and Dark are fixed). */
+
+#aem-sidekick-pro-root,
+.asp-env-picker,
+.asp-inspector,
+#asp-palette,
+.asp-toast {
+  --asp-fg: 255, 255, 255;
+  --asp-fg-strong: #fff;
+  --asp-bg: rgba(28, 28, 28, 0.82);
+  --asp-bg-deep: rgba(17, 18, 20, 0.88);
+  --asp-bg-head: rgba(26, 28, 30, 0.80);
+  --asp-bg-search: rgba(21, 24, 26, 0.75);
+  --asp-link: #78a9ff;
+  --asp-ok: #56d364;
+  --asp-warn: #f1c21b;
+  --asp-bad: #ff8389;
+  --asp-purple: #d4bbff;
+  --asp-shadow: rgba(0, 0, 0, 0.55);
+}
+
+
+html[data-asp-theme="light"] #aem-sidekick-pro-root,
+html[data-asp-theme="light"] .asp-env-picker,
+html[data-asp-theme="light"] .asp-inspector,
+html[data-asp-theme="light"] #asp-palette,
+html[data-asp-theme="light"] .asp-toast {
+  --asp-fg: 0, 0, 0;
+  --asp-fg-strong: #161616;
+  --asp-bg: rgba(255, 255, 255, 0.84);
+  --asp-bg-deep: rgba(255, 255, 255, 0.90);
+  --asp-bg-head: rgba(244, 244, 246, 0.82);
+  --asp-bg-search: rgba(249, 249, 251, 0.78);
+  --asp-link: #0043ce;
+  --asp-ok: #198038;
+  --asp-warn: #8e6a00;
+  --asp-bad: #da1e28;
+  --asp-purple: #6929c4;
+  --asp-shadow: rgba(0, 0, 0, 0.18);
+}
+
+/* ── Root wrapper ─────────────────────────────────────────────────────────── */
+
+#aem-sidekick-pro-root {
+  all: initial;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+/* The orb's hub caption sits under it: leave room for it at the default (not dragged) position. */
+#aem-sidekick-pro-root:has(.asp-bar.asp-orb.asp-minimized) { bottom: 30px; }
+
+#aem-sidekick-pro-root * {
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+/* ── Main bar ─────────────────────────────────────────────────────────────── */
+
+.asp-bar {
+  display: flex;
+  align-items: center;
+  background: var(--asp-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(var(--asp-fg), 0.12);
+  border-radius: 100px;
+  padding: 0 6px;
+  height: 40px;
+  gap: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  user-select: none;
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  transition: padding 0.15s, max-width 0.2s;
+}
+
+/* Env-specific left border accent */
+.asp-bar[data-env="local"]   { border-left: 3px solid #4589ff; }
+.asp-bar[data-env="dev"]     { border-left: 3px solid #3ddbd9; }
+.asp-bar[data-env="stage"]   { border-left: 3px solid var(--asp-warn); }
+.asp-bar[data-env="prod"]    { border-left: 3px solid #fa4d56; }
+.asp-bar[data-env="custom"]  { border-left: 3px solid #a56eff; }
+/* Protected environment: a thin solid red border (plus a lock on the env chip), no glow.
+   The left edge keeps its solid environment accent. */
+.asp-bar.asp-protected {
+  border-top: 1px solid #fa4d56;
+  border-right: 1px solid #fa4d56;
+  border-bottom: 1px solid #fa4d56;
+}
+
+/* Component highlight labels (fixed overlay — never alters page layout) */
+#asp-highlight-labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483640;
+}
+.asp-highlight-tag {
+  position: fixed;
+  background: #0f62fe;
+  color: #fff;
+  font: 9px/1.4 "SFMono-Regular", Consolas, monospace;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+
+
+/* ── Clusters ─────────────────────────────────────────────────────────────── */
+
+.asp-cluster {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.asp-cluster-left       { flex-shrink: 0; }
+.asp-cluster-persistent { flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 2px; }
+.asp-cluster-mini       { flex-shrink: 0; display: flex; align-items: center; gap: 2px; padding: 0 2px; }
+.asp-btn.asp-mini-btn   { padding: 0 8px; gap: 4px; }
+.asp-cluster-right      { flex-shrink: 0; }
+.asp-cluster-center {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  /* On narrow viewports the buttons scroll instead of overflowing onto the close button. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.asp-cluster-center::-webkit-scrollbar { display: none; }
+
+/* ── Divider ──────────────────────────────────────────────────────────────── */
+
+.asp-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(var(--asp-fg), 0.12);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── Logo button ──────────────────────────────────────────────────────────── */
+
+.asp-logo-btn {
+  all: unset;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eb1000 0%, #ff5a36 100%);
+  box-shadow: 0 2px 8px rgba(235, 16, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  will-change: transform, box-shadow, filter;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.asp-logo-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.asp-logo-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 10px rgba(235, 16, 0, 0.55);
+  transform: scale(1.04);
+}
+
+.asp-logo-btn:active {
+  filter: brightness(0.95);
+  transform: scale(0.96);
+}
+
+/* ── Environment chip ────────────────────────────────────────────────────── */
+
+.asp-env-chip {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  background: rgba(var(--asp-fg), 0.08);
+  color: rgba(var(--asp-fg), 0.7);
+  flex-shrink: 0;
+}
+
+.asp-env-chip:hover { background: rgba(var(--asp-fg), 0.14); color: var(--asp-fg-strong); }
+
+.asp-env-chip-local   { background: rgba(0,67,206,0.35);    color: #a8c7fa; }
+.asp-env-chip-dev     { background: rgba(0,125,121,0.35);   color: #3ddbd9; }
+.asp-env-chip-stage   { background: rgba(178,134,0,0.35);   color: var(--asp-warn); }
+.asp-env-chip-prod    { background: rgba(218,30,40,0.35);   color: var(--asp-bad); }
+.asp-env-chip-custom  { background: rgba(105,41,196,0.35);  color: var(--asp-purple); }
+
+.asp-env-chip-local:hover   { background: rgba(0,67,206,0.5);   }
+.asp-env-chip-dev:hover     { background: rgba(0,125,121,0.5);  }
+.asp-env-chip-stage:hover   { background: rgba(178,134,0,0.5);  }
+.asp-env-chip-prod:hover    { background: rgba(218,30,40,0.5);  }
+.asp-env-chip-custom:hover  { background: rgba(105,41,196,0.5); }
+
+/* Lock: shown only on protected environments (the bar carries .asp-protected) */
+.asp-env-chip-lock { display: none; fill: currentColor; flex-shrink: 0; }
+.asp-bar.asp-protected .asp-env-chip-lock { display: inline-block; }
+
+.asp-env-chip-chevron {
+  fill: currentColor;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.asp-env-chip.asp-env-chip-open .asp-env-chip-chevron { transform: rotate(180deg); }
+
+/* ── Environment picker ──────────────────────────────────────────────────── */
+
+.asp-env-picker {
+  position: fixed;
+  background: var(--asp-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(var(--asp-fg), 0.14);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  min-width: 160px;
+  z-index: 2147483647;
+  pointer-events: auto;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+.asp-env-picker-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--asp-fg), 0.3);
+  padding: 4px 8px 6px;
+}
+
+.asp-env-picker-items { display: flex; flex-direction: column; gap: 1px; }
+
+.asp-env-pick-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(var(--asp-fg), 0.65);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  box-sizing: border-box;
+}
+.asp-env-pick-btn:hover { background: rgba(var(--asp-fg), 0.08); color: var(--asp-fg-strong); }
+
+.asp-epc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.asp-epc-local  .asp-epc-dot { background: #4589ff; }
+.asp-epc-dev    .asp-epc-dot { background: #3ddbd9; }
+.asp-epc-stage  .asp-epc-dot { background: var(--asp-warn); }
+.asp-epc-prod   .asp-epc-dot { background: #fa4d56; }
+.asp-epc-custom .asp-epc-dot { background: #a56eff; }
+
+.asp-env-pick-btn.asp-epc-active { background: rgba(var(--asp-fg), 0.06); color: var(--asp-fg-strong); font-weight: 700; }
+.asp-epc-active.asp-epc-local  { color: var(--asp-link); }
+.asp-epc-active.asp-epc-dev    { color: #3ddbd9; }
+.asp-epc-active.asp-epc-stage  { color: var(--asp-warn); }
+.asp-epc-active.asp-epc-prod   { color: var(--asp-bad); }
+.asp-epc-active.asp-epc-custom { color: var(--asp-purple); }
+
+/* ── Status pill ─────────────────────────────────────────────────────────── */
+
+.asp-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.asp-s-published { background: rgba(14,68,41,0.9);  color: var(--asp-ok); }
+.asp-s-draft     { background: rgba(61,31,0,0.9);   color: var(--asp-warn); }
+.asp-s-modified  { background: rgba(58,37,0,0.9);   color: #ff832b; }
+.asp-s-unknown   { background: rgba(38,38,38,0.8);  color: #8d8d8d; }
+
+/* ── Groups ───────────────────────────────────────────────────────────────── */
+
+.asp-group { display: flex; align-items: center; gap: 1px; }
+
+/* ── Action buttons ──────────────────────────────────────────────────────── */
+
+.asp-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-weight: 500;
+  color: rgba(var(--asp-fg), 0.75);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.asp-btn:hover  { background: rgba(var(--asp-fg), 0.1); color: var(--asp-fg-strong); }
+.asp-btn:active { background: rgba(var(--asp-fg), 0.18); }
+.asp-btn svg    { fill: currentColor; flex-shrink: 0; }
+
+.asp-btn-warn          { color: var(--asp-warn); }
+.asp-btn-warn:hover    { background: rgba(61,31,0,0.5); color: var(--asp-warn); }
+
+.asp-btn-danger        { color: var(--asp-bad); }
+.asp-btn-danger:hover  { background: rgba(45,7,9,0.6); color: var(--asp-bad); }
+
+.asp-btn-on {
+  background: rgba(15,98,254,0.3) !important;
+  color: var(--asp-link) !important;
+}
+
+/* ── Icon-only buttons ────────────────────────────────────────────────────── */
+
+.asp-icon-btn {
+  all: unset;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  color: rgba(var(--asp-fg), 0.45);
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.asp-icon-btn:hover   { background: rgba(var(--asp-fg), 0.1); color: var(--asp-fg-strong); }
+.asp-icon-btn svg     { fill: currentColor; }
+.asp-close-btn:hover  { background: rgba(250,77,86,0.2); color: var(--asp-bad); }
+
+/* ── JCR path display ─────────────────────────────────────────────────────── */
+
+.asp-path {
+  font-size: 11px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: rgba(120, 169, 255, 0.85);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.1s;
+}
+
+.asp-path:hover { color: var(--asp-link); text-decoration: underline; }
+
+/* ── JCR Inspector panel ──────────────────────────────────────────────────── */
+/* Lives on <body>, positioned ABOVE the toolbar via JS (positionInspector()).
+   display:flex so the column layout (header / search / table) works correctly. */
+
+.asp-inspector {
+  position: fixed;                        /* viewport-relative — no transformed ancestor */
+  display: none;                          /* toggled to flex by JS */
+  flex-direction: column;
+  background: var(--asp-bg-deep);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(var(--asp-fg), 0.14);
+  border-radius: 12px;
+  overflow: hidden;
+  width: 540px;
+  max-width: calc(100vw - 32px);
+  max-height: 460px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  z-index: 2147483647;
+  pointer-events: auto;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+/* Header row */
+.asp-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--asp-bg-head);
+  border-bottom: 1px solid rgba(var(--asp-fg), 0.08);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.asp-inspector-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(var(--asp-fg), 0.55);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  min-width: 0;
+  flex: 1;
+}
+
+.asp-inspector-header-left svg { fill: rgba(var(--asp-fg), 0.4); flex-shrink: 0; }
+
+.asp-inspector-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Copy button in inspector header */
+.asp-inspector-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  color: rgba(var(--asp-fg), 0.5);
+  border: 1px solid rgba(var(--asp-fg), 0.12);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  box-sizing: border-box;
+}
+.asp-inspector-btn svg { fill: currentColor; }
+.asp-inspector-btn:hover { background: rgba(var(--asp-fg), 0.08); color: var(--asp-fg-strong); }
+
+/* Search / filter row */
+.asp-inspector-search {
+  padding: 6px 10px;
+  background: var(--asp-bg-search);
+  border-bottom: 1px solid rgba(var(--asp-fg), 0.07);
+  flex-shrink: 0;
+}
+
+.asp-inspector-search-input {
+  all: unset;
+  display: block;
+  width: 100%;
+  height: 26px;
+  background: rgba(var(--asp-fg), 0.06);
+  border: 1px solid rgba(var(--asp-fg), 0.1);
+  border-radius: 5px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-family: inherit;
+  color: rgba(var(--asp-fg), 0.8);
+  box-sizing: border-box;
+  transition: border-color 0.1s;
+}
+.asp-inspector-search-input::placeholder { color: rgba(var(--asp-fg), 0.25); }
+.asp-inspector-search-input:focus { border-color: rgba(69,137,255,0.7); outline: none; }
+
+/* Table wrapper — scrollable */
+.asp-inspector-table-wrap {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.asp-inspector-table-wrap::-webkit-scrollbar { width: 4px; }
+.asp-inspector-table-wrap::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* Properties table */
+.asp-inspector-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.asp-inspector-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--asp-bg-head);
+  padding: 5px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(var(--asp-fg), 0.3);
+  border-bottom: 1px solid rgba(var(--asp-fg), 0.07);
+  z-index: 1;
+}
+
+.asp-inspector-table tbody tr {
+  border-bottom: 1px solid rgba(var(--asp-fg), 0.04);
+  transition: background 0.08s;
+}
+.asp-inspector-table tbody tr:last-child { border-bottom: none; }
+.asp-inspector-table tbody tr:hover { background: rgba(var(--asp-fg), 0.04); }
+
+.asp-insp-key {
+  padding: 5px 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: var(--asp-link);
+  white-space: nowrap;
+  vertical-align: top;
+  width: 38%;
+  word-break: break-all;
+}
+
+.asp-insp-val {
+  padding: 5px 12px 5px 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: rgba(var(--asp-fg), 0.75);
+  word-break: break-all;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.asp-inspector-loading,
+.asp-inspector-empty {
+  padding: 16px 14px;
+  text-align: center;
+  color: rgba(var(--asp-fg), 0.3);
+  font-size: 12px;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+/* ── JCR tree view ─────────────────────────────────────────────────────────── */
+
+.asp-tree { padding: 4px 0; font-size: 11.5px; }
+.asp-tree .asp-tree-node { margin-left: 12px; }
+.asp-tree > .asp-tree-node { margin-left: 4px; }
+.asp-tree summary {
+  cursor: pointer;
+  padding: 3px 8px;
+  color: var(--asp-purple);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  list-style: revert;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asp-tree summary:hover { background: rgba(var(--asp-fg), 0.04); }
+.asp-tree-type { margin-left: 8px; color: rgba(var(--asp-fg), 0.3); font-size: 10.5px; }
+.asp-tree-prop { display: flex; gap: 6px; border-bottom: 1px solid rgba(var(--asp-fg), 0.04); }
+.asp-tree-prop .asp-insp-key { padding: 4px 8px 4px 12px; }
+.asp-tree-prop .asp-insp-val { padding: 4px 8px 4px 0; }
+
+/* ── Floating panels (SEO check, cache headers) ───────────────────────────── */
+
+.asp-float-panel { display: flex; width: 520px; }
+.asp-float-body {
+  padding: 4px 0;
+  font-size: 12px;
+  color: rgba(var(--asp-fg), 0.75);
+  max-height: 380px;
+}
+
+.asp-audit-score { padding: 8px 12px; font-size: 13px; font-weight: 700; }
+.asp-audit-score[data-level="good"] { color: var(--asp-ok); }
+.asp-audit-score[data-level="ok"]   { color: var(--asp-warn); }
+.asp-audit-score[data-level="bad"]  { color: var(--asp-bad); }
+.asp-audit-group {
+  padding: 8px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(var(--asp-fg), 0.35);
+}
+.asp-audit-row  { display: flex; gap: 8px; padding: 3px 12px; align-items: baseline; }
+.asp-audit-icon { flex: 0 0 14px; font-weight: 700; text-align: center; }
+.asp-audit-pass .asp-audit-icon { color: var(--asp-ok); }
+.asp-audit-warn .asp-audit-icon { color: var(--asp-warn); }
+.asp-audit-fail .asp-audit-icon { color: var(--asp-bad); }
+.asp-audit-info .asp-audit-icon { color: var(--asp-link); }
+.asp-audit-detail {
+  padding: 0 12px 2px 34px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 10.5px;
+  color: rgba(var(--asp-fg), 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Command palette ──────────────────────────────────────────────────────── */
+
+#asp-palette {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 2147483647;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 15vh;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+.asp-palette-box {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  background: var(--asp-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(var(--asp-fg), 0.14);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+}
+.asp-palette-box .asp-inspector-search-input { width: 100%; box-sizing: border-box; font-size: 13px; height: 34px; }
+.asp-palette-list { margin-top: 6px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.asp-palette-sel { background: rgba(15,98,254,0.35) !important; color: var(--asp-fg-strong) !important; }
+
+
+/* ── Tools menu (reuses .asp-env-picker shell) ───────────────────────────── */
+
+.asp-menu { min-width: 260px; display: flex; flex-direction: column; gap: 1px; }
+
+.asp-menu-item {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: inherit;
+  color: rgba(var(--asp-fg), 0.8);
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.asp-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: rgba(var(--asp-fg), 0.65);
+}
+.asp-menu-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.asp-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.asp-menu-item:hover:not(:disabled) { background: rgba(var(--asp-fg), 0.08); color: var(--asp-fg-strong); }
+.asp-menu-item:hover:not(:disabled) .asp-menu-icon { color: var(--asp-fg-strong); }
+.asp-menu-item:disabled { color: rgba(var(--asp-fg), 0.25); cursor: default; }
+
+.asp-menu-sep { height: 1px; margin: 4px 6px; background: rgba(var(--asp-fg), 0.08); }
+
+/* ── Component inspector ──────────────────────────────────────────────────── */
+
+#asp-inspect-box {
+  position: fixed;
+  outline: 2px solid #4589ff;
+  outline-offset: -1px;
+  background: rgba(69,137,255,0.08);
+  pointer-events: none;
+  z-index: 2147483646;
+  box-sizing: border-box;
+}
+
+/* ── DAM asset inspector hover box (amber — distinct from the blue component box) */
+
+#asp-dam-inspect-box {
+  position: fixed;
+  outline: 2px solid var(--asp-warn);
+  outline-offset: -1px;
+  background: rgba(241,194,27,0.07);
+  pointer-events: none;
+  z-index: 2147483646;
+  box-sizing: border-box;
+  transition: top 0.06s, left 0.06s, width 0.06s, height 0.06s;
+}
+
+.asp-component-card { display: flex; width: 460px; max-height: none; }
+
+.asp-cc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(var(--asp-fg), 0.06);
+  font-size: 12px;
+}
+.asp-cc-key { flex: 0 0 96px; color: rgba(var(--asp-fg), 0.45); font-weight: 600; }
+.asp-cc-val {
+  flex: 1;
+  min-width: 0;
+  color: rgba(var(--asp-fg), 0.88);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asp-cc-hint { padding: 8px 12px; font-size: 11px; color: rgba(var(--asp-fg), 0.4); }
+
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+
+.asp-toast {
+  all: initial;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  padding: 7px 16px;
+  border-radius: 100px;
+  background: var(--asp-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(var(--asp-fg), 0.14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2147483647;
+}
+
+.asp-toast.asp-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.asp-toast-success   { background: #0a3622; color: var(--asp-ok); border: 1px solid rgba(86,211,100,0.3); }
+.asp-toast-error     { background: #2d0709; color: var(--asp-bad); border: 1px solid rgba(255,131,137,0.3); }
+.asp-toast-warn      { background: #3d1f00; color: var(--asp-warn); border: 1px solid rgba(241,194,27,0.3); }
+.asp-toast-info      { background: #0a2858; color: var(--asp-link); border: 1px solid rgba(120,169,255,0.3); }
+
+/* Per-env toast colours */
+.asp-toast-env-local   { background: rgba(0,43,140,0.92);   color: #a8c7fa; border: 1px solid rgba(69,137,255,0.4); }
+.asp-toast-env-dev     { background: rgba(0,77,74,0.92);    color: #3ddbd9; border: 1px solid rgba(61,219,217,0.35); }
+.asp-toast-env-stage   { background: rgba(90,64,0,0.92);    color: var(--asp-warn); border: 1px solid rgba(241,194,27,0.35); }
+.asp-toast-env-prod    { background: rgba(100,10,14,0.92);  color: var(--asp-bad); border: 1px solid rgba(250,77,86,0.35); }
+.asp-toast-env-custom  { background: rgba(60,20,110,0.92);  color: var(--asp-purple); border: 1px solid rgba(165,110,255,0.35); }
+
+/* ── Keyboard focus ───────────────────────────────────────────────────────── */
+
+.asp-btn:focus-visible,
+.asp-icon-btn:focus-visible,
+.asp-logo-btn:focus-visible,
+.asp-env-chip:focus-visible,
+.asp-env-pick-btn:focus-visible,
+.asp-menu-item:focus-visible,
+.asp-inspector-btn:focus-visible,
+.asp-status-pill[role="button"]:focus-visible,
+.asp-path:focus-visible,
+.asp-toast-btn:focus-visible {
+  outline: 2px solid #4589ff;
+  outline-offset: -2px; /* inset: the centre cluster scrolls and would clip an outer ring */
+}
+
+/* ── More menu: descriptions, sections, danger items ─────────────────────── */
+
+.asp-menu { max-width: 340px; }
+.asp-menu-item .asp-menu-title { display: block; }
+.asp-menu-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  color: rgba(var(--asp-fg), 0.5);
+}
+.asp-menu-item.asp-menu-danger .asp-menu-title { color: var(--asp-bad); }
+.asp-menu-sec { padding-top: 8px; }
+.asp-menu-item.asp-menu-focus { background: rgba(var(--asp-fg), 0.08); }
+
+.asp-more-btn .asp-more-chevron,
+.asp-tier-btn .asp-more-chevron,
+#asp-publish-menu-btn .asp-more-chevron,
+#asp-locales-btn .asp-more-chevron { transition: transform 0.15s; }
+.asp-more-btn.asp-btn-on .asp-more-chevron,
+.asp-tier-btn.asp-btn-on .asp-more-chevron,
+#asp-publish-menu-btn.asp-btn-on .asp-more-chevron,
+#asp-locales-btn.asp-btn-on .asp-more-chevron { transform: rotate(180deg); }
+
+.asp-kbd {
+  all: unset;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border: 1px solid rgba(var(--asp-fg), 0.2);
+  border-radius: 5px;
+  color: rgba(var(--asp-fg), 0.6);
+}
+
+.asp-pool { display: none !important; }
+
+/* ── Clickable status pill ────────────────────────────────────────────────── */
+
+.asp-status-pill[role="button"] { cursor: pointer; }
+.asp-status-pill[role="button"]:hover { filter: brightness(1.2); }
+
+#asp-status-panel { width: 380px; }
+#asp-status-panel .asp-cc-val { white-space: normal; font-family: inherit; font-size: 12px; }
+
+/* ── Busy state while an action runs ──────────────────────────────────────── */
+
+#aem-sidekick-pro-root .asp-btn.asp-busy { opacity: 0.65; cursor: progress; }
+#aem-sidekick-pro-root .asp-btn.asp-busy svg { animation: asp-spin 0.9s linear infinite; }
+/* Publishing button: swap the arrow for a spinner while a publish/unpublish runs; the chevron stays still. */
+#aem-sidekick-pro-root .asp-spinner { display: none; }
+#aem-sidekick-pro-root .asp-btn.asp-busy .asp-pub-icon { display: none; }
+#aem-sidekick-pro-root .asp-btn.asp-busy .asp-spinner { display: inline-block; }
+#aem-sidekick-pro-root .asp-btn.asp-busy .asp-more-chevron { animation: none; }
+@keyframes asp-spin { to { transform: rotate(360deg); } }
+
+/* ── Toast with action buttons ────────────────────────────────────────────── */
+
+.asp-toast.asp-toast-has-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+.asp-toast-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.asp-toast-btn:hover { background: rgba(var(--asp-fg), 0.12); }
+
+/* ── Compact (icon-only) mode on narrow windows ───────────────────────────── */
+
+@media (max-width: 900px) {
+  .asp-btn .asp-lbl { display: none; }
+  .asp-btn { padding: 0 8px; }
+  .asp-path { display: none; }
+}
+
+/* ── Dragging the bar ─────────────────────────────────────────────────────── */
+
+.asp-bar.asp-dragging { cursor: grabbing; }
+.asp-bar.asp-dragging * { cursor: grabbing !important; }
+
+/* ── Orb style (default on; configurable in Settings → Toolbar) ──
+   The collapsed bar becomes a round, animated button. Hover / focus fans the environment
+   and regular-bar buttons out as a half ring of pointed leaves (icon above, label below); click opens the full bar.
+   Only transform and opacity are animated, so it stays cheap on heavy AEM pages. Everything is
+   scoped to .asp-orb.asp-minimized: the expanded bar is untouched. */
+
+.asp-orb-ring, .asp-orb-hub, .asp-orb-fan { display: none; }
+
+.asp-bar                    { --asp-orb-env: #8d8d8d; }
+.asp-bar[data-env="local"]  { --asp-orb-env: #4589ff; }
+.asp-bar[data-env="dev"]    { --asp-orb-env: #3ddbd9; }
+.asp-bar[data-env="stage"]  { --asp-orb-env: var(--asp-warn); }
+.asp-bar[data-env="prod"]   { --asp-orb-env: #fa4d56; }
+.asp-bar[data-env="custom"] { --asp-orb-env: #a56eff; }
+
+/* The orb (disc, outer ring and glow) uses its own, darker shade of each environment colour in both themes (the same shades the light
+   theme uses for the leaf icons), so the white spiral always has the contrast and the orb looks the same whatever the browser theme. */
+.asp-bar                    { --asp-orb-tone: #6f6f6f; }
+.asp-bar[data-env="local"]  { --asp-orb-tone: #0043ce; }
+.asp-bar[data-env="dev"]    { --asp-orb-tone: #005d5d; }
+.asp-bar[data-env="stage"]  { --asp-orb-tone: #684e00; }
+.asp-bar[data-env="prod"]   { --asp-orb-tone: #a2191f; }
+.asp-bar[data-env="custom"] { --asp-orb-tone: #6929c4; }
+
+.asp-bar.asp-orb.asp-minimized {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  gap: 0;
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.asp-bar.asp-orb.asp-minimized .asp-cluster-persistent,
+.asp-bar.asp-orb.asp-minimized .asp-cluster-right { display: none; }
+
+.asp-bar.asp-orb.asp-minimized .asp-cluster-left {
+  position: relative;
+  z-index: 2;            /* above the fan's hover zone, so the orb always gets its own clicks */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+/* The orb itself: a dark brown disc like the AEM icon (a light one in the light theme) with the AEM-style spiral inside it, drawn in
+   the environment colour. Hover / open lifts it a little. The small white-spiral logo is only for the regular and expanded bars. */
+.asp-bar.asp-orb.asp-minimized .asp-logo-btn {
+  position: relative;
+  overflow: hidden;
+  width: 44px;
+  height: 44px;
+  background: var(--asp-orb-bg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+}
+.asp-logo-btn .asp-logo-spiral { display: none; }
+.asp-bar.asp-orb.asp-minimized .asp-logo-btn .asp-logo-a { display: none; }
+.asp-bar.asp-orb.asp-minimized .asp-logo-btn .asp-logo-spiral { display: block; width: 44px; height: 44px; }
+.asp-bar.asp-orb.asp-minimized .asp-logo-btn:hover { transform: scale(1.06); }
+.asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-logo-btn { transform: scale(1.06); }
+.asp-bar.asp-orb.asp-minimized .asp-logo-btn:focus-visible { outline: 2px solid var(--asp-link); outline-offset: 4px; }
+
+/* Disc and spiral colours, the same in every theme: the disc takes a darker shade of the environment colour, so it stays apart from
+   the ring, with a white spiral on it, dimmed so the white dot stands out. */
+.asp-bar {
+  --asp-orb-bg: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--asp-orb-tone) 85%, #fff) 0%, var(--asp-orb-tone) 62%, color-mix(in srgb, var(--asp-orb-tone) 80%, #000) 100%);
+  --asp-sp-line: rgba(255, 255, 255, 0.6);                                 /* the two strands */
+  --asp-sp-glow: #fff;                                                     /* the glow round the dot */
+  --asp-sp-core: #fff;                                                     /* the bright centre of the dot */
+}
+
+/* The spiral: two interlaced strands (8 lobes), one thin and one thick. It never moves; one glowing dot runs round the thick strand.
+   The dot is a zero-length dash of the same path (pathLength is 100) drawn as six stacked round-capped strokes: five wide, faint
+   glows that fade out towards the edge, and a bright core. Stacked strokes instead of a blur filter keep it cheap to repaint on heavy pages. */
+.asp-logo-spiral path { fill: none; stroke: var(--asp-sp-line); stroke-linejoin: round; }
+.asp-logo-spiral .asp-sp-thin  { stroke-width: 1.2; }
+.asp-logo-spiral .asp-sp-thick { stroke-width: 2.4; }
+.asp-logo-spiral .asp-sp-dot {
+  stroke-linecap: round;
+  stroke-dasharray: 0.01 99.99;
+  animation: asp-orb-run 2.4s linear infinite;
+}
+.asp-logo-spiral .asp-sp-d1 { stroke-width: 12;  stroke: var(--asp-sp-glow); opacity: 0.07; }
+.asp-logo-spiral .asp-sp-d2 { stroke-width: 9.5; stroke: var(--asp-sp-glow); opacity: 0.1; }
+.asp-logo-spiral .asp-sp-d3 { stroke-width: 7.5; stroke: var(--asp-sp-glow); opacity: 0.16; }
+.asp-logo-spiral .asp-sp-d4 { stroke-width: 5.8; stroke: var(--asp-sp-glow); opacity: 0.28; }
+.asp-logo-spiral .asp-sp-d5 { stroke-width: 4.2; stroke: var(--asp-sp-glow); opacity: 0.5; }
+.asp-logo-spiral .asp-sp-d6 { stroke-width: 2.6; stroke: var(--asp-sp-core); }
+
+/* Ring = environment colour (the same fixed shade as the disc, in both themes): the outer border and glow. It breathes slowly, and faster while an action is running.
+   Dashed instead of solid when the environment is protected. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-ring {
+  display: block;
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--asp-orb-tone);
+  box-shadow: 0 0 12px var(--asp-orb-tone);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: asp-orb-breathe 3.4s ease-in-out infinite;
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-protected .asp-orb-ring { border-style: dashed; }
+.asp-bar.asp-orb.asp-minimized.asp-orb-busy .asp-orb-ring { animation-duration: 0.9s; }
+.asp-bar.asp-orb.asp-minimized.asp-orb-busy .asp-logo-spiral .asp-sp-dot { animation-duration: 0.8s; }
+
+@keyframes asp-orb-run     { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -100; } }
+@keyframes asp-orb-breathe { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+
+/* Hub caption ("LOCAL · Published"): on the side of the orb away from the ring, only while the fan is open.
+   JS sets data-orb-cap to "below", "above" or "none" (no room). */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-hub {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 9px);   /* clear of the orb's ring (it reaches 6px beyond the orb) */
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--asp-bg);
+  border: 1px solid rgba(var(--asp-fg), 0.14);
+  color: var(--asp-fg-strong);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized[data-orb-cap="above"] .asp-orb-hub { top: auto; bottom: calc(100% + 9px); }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized[data-orb-cap="none"] .asp-orb-hub { display: none; }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-hub { opacity: 1; }
+/* While a leaf in a narrow (icon-only) arc is hovered, the pill carries that leaf's name beside it. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-hub[data-tip] { display: block; top: auto; bottom: auto; opacity: 1; }
+
+/* The fan: a zero-size anchor at the orb's centre. Each leaf is a box around its own wedge (left / top / width /
+   height from JS), cut to the ring segment by a clip-path; its icon and label are nudged into place with --ox / --oy. */
+.asp-bar.asp-orb.asp-minimized .asp-orb-fan {
+  display: block;
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  /* A hairline edge round every leaf, so the glass stays visible on a page of the same colour. It is on the fan, not the leaves: a
+     border would be cut by each leaf's clip-path, a filter is applied after it. No soft shadow: it fills the gaps and joins the leaves. */
+  filter: drop-shadow(0 0 0.6px rgba(var(--asp-fg), 0.55));
+}
+/* A small invisible disc over the orb's surroundings: the pointer can cross from the orb to a leaf without the fan closing. */
+.asp-bar.asp-orb.asp-minimized .asp-orb-fan::before {
+  content: '';
+  position: absolute;
+  left: -40px;
+  top: -40px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan::before { pointer-events: auto; }
+
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-fan > .asp-btn {
+  position: absolute;
+  padding: 0;
+  gap: 3px;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 0;
+  background: var(--asp-bg);
+  /* No backdrop-filter here: each leaf is cut to its wedge by a clip-path, and while the leaf scales / fades in Chrome paints its blur
+     layer as the whole, unclipped box. That showed as large dark rectangles flashing over the arc as it opened (the fill is 82 % opaque anyway). */
+  color: rgba(var(--asp-fg), 0.88);
+  opacity: 0;
+  transform: scale(0.5);
+  pointer-events: none;
+  transition: transform 0.12s ease, opacity 0.1s ease;
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-btn {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  transition:
+    transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.15) calc(var(--i, 0) * 28ms),
+    opacity 0.16s ease calc(var(--i, 0) * 28ms),
+    background-color 0.1s, color 0.1s;
+}
+/* Icon and label sit at the middle of the leaf, not at the middle of its (large) box. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-fan > .asp-btn > * {
+  translate: var(--ox, 0px) var(--oy, 0px);
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-fan > .asp-btn svg { width: 15px; height: 15px; }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-fan > .asp-btn .asp-lbl {
+  display: block;
+  max-width: 54px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized[data-orb-compact="1"] .asp-orb-fan > .asp-btn .asp-lbl { display: none; }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-btn:hover,
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-btn:focus-visible {
+  color: var(--asp-fg-strong);
+  background-image: linear-gradient(rgba(var(--asp-fg), 0.16), rgba(var(--asp-fg), 0.16));
+}
+/* An outline would be cut by the leaf's shape, so keyboard focus is a stronger fill. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-fan > .asp-btn:focus-visible {
+  outline: none;
+  background-image: linear-gradient(rgba(15, 98, 254, 0.4), rgba(15, 98, 254, 0.4));
+}
+
+/* Colour is identity only (the icon): hover is the same neutral lift on every leaf, the Env leaf included. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-env-btn svg { color: var(--asp-orb-env); }
+/* While the environments are open the middle leaf is "Back": neutral grey with an arrow, so it is not mistaken for the active environment. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-env-btn.asp-orb-back svg { color: rgba(var(--asp-fg), 0.88); }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-orb-env-btn.asp-orb-back {
+  background-image: linear-gradient(rgba(var(--asp-fg), 0.2), rgba(var(--asp-fg), 0.2));
+}
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-orb-env-btn.asp-orb-back:hover {
+  background-image: linear-gradient(rgba(var(--asp-fg), 0.16), rgba(var(--asp-fg), 0.16));
+}
+
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-btn.asp-orb-active:focus-visible,
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-btn.asp-orb-env-btn:focus-visible {
+  background-image: linear-gradient(rgba(15, 98, 254, 0.4), rgba(15, 98, 254, 0.4));
+}
+
+/* The environments as leaves: each icon in its own colour; the one in use is filled, bold and has an up chevron under its label (not colour alone). */
+#aem-sidekick-pro-root .asp-orb-envopt { --asp-envopt: #8d8d8d; }
+#aem-sidekick-pro-root .asp-orb-envopt[data-kind="local"]  { --asp-envopt: #4589ff; }
+#aem-sidekick-pro-root .asp-orb-envopt[data-kind="dev"]    { --asp-envopt: #3ddbd9; }
+#aem-sidekick-pro-root .asp-orb-envopt[data-kind="stage"]  { --asp-envopt: var(--asp-warn); }
+#aem-sidekick-pro-root .asp-orb-envopt[data-kind="prod"]   { --asp-envopt: #fa4d56; }
+#aem-sidekick-pro-root .asp-orb-envopt[data-kind="custom"] { --asp-envopt: #a56eff; }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-envopt svg { color: var(--asp-envopt); }
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-orb-envopt.asp-orb-active {
+  background-image: linear-gradient(color-mix(in srgb, var(--asp-envopt) 24%, transparent), color-mix(in srgb, var(--asp-envopt) 24%, transparent));
+  color: var(--asp-fg-strong);
+  font-weight: 700;
+}
+/* Hovering the one in use lifts it neutrally, on top of its fill. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized.asp-orb-open .asp-orb-fan > .asp-orb-envopt.asp-orb-active:hover {
+  background-image:
+    linear-gradient(rgba(var(--asp-fg), 0.16), rgba(var(--asp-fg), 0.16)),
+    linear-gradient(color-mix(in srgb, var(--asp-envopt) 24%, transparent), color-mix(in srgb, var(--asp-envopt) 24%, transparent));
+}
+/* The marker is a filled up triangle (▴), drawn rather than text, so it needs no width and is not read out (the leaf is
+   already aria-pressed). JS centres it on the leaf's base (--cvx / --cvy: offset from the box centre, so its lower edge sits
+   exactly on the base) and turns it with the leaf (--cva) so it points away from the orb. Height matches ORB_CHEVRON_H in JS. */
+#aem-sidekick-pro-root .asp-bar.asp-orb.asp-minimized .asp-orb-envopt.asp-orb-active::after {
+  content: '';
+  position: absolute;
+  left: calc(50% + var(--cvx, 0px));
+  top: calc(50% + var(--cvy, 0px));
+  width: 10px;
+  height: 6px;
+  background: var(--asp-envopt);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  transform: translate(-50%, -50%) rotate(var(--cva, 0deg));
+  pointer-events: none;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  #aem-sidekick-pro-root,
+  #aem-sidekick-pro-root *,
+  .asp-env-picker,
+  .asp-env-picker *,
+  .asp-toast,
+  #asp-dam-inspect-box {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── Light theme overrides (must come after the base rules) ───────────────── */
+
+/* Environment colours darkened for the light background (same values as the chip), so the leaf icons and the orb ring keep their contrast. */
+html[data-asp-theme="light"] .asp-bar[data-env="local"] { --asp-orb-env: #0043ce; }
+html[data-asp-theme="light"] .asp-bar[data-env="dev"] { --asp-orb-env: #005d5d; }
+html[data-asp-theme="light"] .asp-bar[data-env="stage"] { --asp-orb-env: #684e00; }
+html[data-asp-theme="light"] .asp-bar[data-env="prod"] { --asp-orb-env: #a2191f; }
+html[data-asp-theme="light"] .asp-bar[data-env="custom"] { --asp-orb-env: #6929c4; }
+html[data-asp-theme="light"] #aem-sidekick-pro-root .asp-orb-envopt[data-kind="local"] { --asp-envopt: #0043ce; }
+html[data-asp-theme="light"] #aem-sidekick-pro-root .asp-orb-envopt[data-kind="dev"] { --asp-envopt: #005d5d; }
+html[data-asp-theme="light"] #aem-sidekick-pro-root .asp-orb-envopt[data-kind="stage"] { --asp-envopt: #684e00; }
+html[data-asp-theme="light"] #aem-sidekick-pro-root .asp-orb-envopt[data-kind="prod"] { --asp-envopt: #a2191f; }
+html[data-asp-theme="light"] #aem-sidekick-pro-root .asp-orb-envopt[data-kind="custom"] { --asp-envopt: #6929c4; }
+html[data-asp-theme="light"] .asp-s-published { background: #defbe6; }
+html[data-asp-theme="light"] .asp-s-draft { background: #fcf4d6; }
+html[data-asp-theme="light"] .asp-s-modified { background: #ffd9be; color: #8a3800; }
+html[data-asp-theme="light"] .asp-s-unknown { background: #e8e8e8; color: #525252; }
+html[data-asp-theme="light"] .asp-btn-warn:hover { background: rgba(142,106,0,0.12); }
+html[data-asp-theme="light"] .asp-btn-danger:hover { background: rgba(218,30,40,0.1); }
+html[data-asp-theme="light"] .asp-btn-on { color: #0043ce !important; }
+html[data-asp-theme="light"] .asp-env-chip-local { color: #0043ce; }
+html[data-asp-theme="light"] .asp-env-chip-dev { color: #005d5d; }
+html[data-asp-theme="light"] .asp-env-chip-stage { color: #684e00; }
+html[data-asp-theme="light"] .asp-env-chip-prod { color: #a2191f; }
+html[data-asp-theme="light"] .asp-env-chip-custom { color: #6929c4; }
+html[data-asp-theme="light"] .asp-epc-active.asp-epc-local { color: #0043ce; }
+html[data-asp-theme="light"] .asp-epc-active.asp-epc-dev { color: #005d5d; }
+html[data-asp-theme="light"] .asp-epc-active.asp-epc-stage { color: #684e00; }
+html[data-asp-theme="light"] .asp-epc-active.asp-epc-prod { color: #a2191f; }
+html[data-asp-theme="light"] .asp-epc-active.asp-epc-custom { color: #6929c4; }
+html[data-asp-theme="light"] .asp-toast-success { background: #defbe6; color: #0e6027; }
+html[data-asp-theme="light"] .asp-toast-error { background: #fff1f1; color: #a2191f; }
+html[data-asp-theme="light"] .asp-toast-warn { background: #fcf4d6; color: #684e00; }
+html[data-asp-theme="light"] .asp-toast-info { background: #edf5ff; color: #0043ce; }
+html[data-asp-theme="light"] .asp-toast-env-local { background: #edf5ff; color: #0043ce; }
+html[data-asp-theme="light"] .asp-toast-env-dev { background: #d9fbfb; color: #005d5d; }
+html[data-asp-theme="light"] .asp-toast-env-stage { background: #fcf4d6; color: #684e00; }
+html[data-asp-theme="light"] .asp-toast-env-prod { background: #fff1f1; color: #a2191f; }
+html[data-asp-theme="light"] .asp-toast-env-custom { background: #f6f2ff; color: #6929c4; }
+html[data-asp-theme="light"] .asp-toast { box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+html[data-asp-theme="light"] .asp-inspector-table-wrap::-webkit-scrollbar-thumb { background: #c6c6c6; }
+
+/* ── Menu: loading row (e.g. Locales while live copies are looked up) ─────── */
+
+.asp-menu-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: rgba(var(--asp-fg), 0.6);
+}
+.asp-menu-spinner { flex-shrink: 0; animation: asp-spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .asp-menu-spinner { animation-duration: 2.4s; } }

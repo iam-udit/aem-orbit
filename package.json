@@ -1,0 +1,27 @@
+{
+  "name": "aem-orbit",
+  "version": "1.0.0-beta",
+  "description": "Developer & author Chrome extension for AEM as a Cloud Service — publish (incl. Preview tier), reference check, content drift, JCR tree, component inspector, SEO/a11y check, command palette.",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "icons": "node generate-icons.js",
+    "lint": "eslint .",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "check": "npm run lint && npm test",
+    "build": "node scripts/build.mjs",
+    "build:policy-test": "node scripts/build.mjs --policy-test",
+    "watch": "node scripts/build.mjs --watch",
+    "zip": "npm run build && rm -f dist/aem-orbit-$npm_package_version.zip && cd dist/extension && zip -qr ../aem-orbit-$npm_package_version.zip . -x '*.DS_Store' -x '*.map'",
+    "release": "npm run check && npm run zip",
+    "test:e2e:visual": "node scripts/e2e-chrome-devtools.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0"
+  }
+}

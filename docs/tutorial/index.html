@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self' https://github.com https://*.githubusercontent.com; base-uri 'none'; form-action 'none'">
+  <title>AEM Orbit — Video tutorial</title>
+  <link rel="stylesheet" href="tutorial.css">
+  <link rel="icon" type="image/png" href="../icon.png">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12.00 1.90 L12.53 1.95 L13.04 2.08 L13.54 2.31 L14.00 2.61 L14.42 2.97 L14.80 3.38 L15.14 3.82 L15.43 4.29 L15.69 4.75 L15.92 5.20 L16.14 5.63 L16.34 6.02 L16.55 6.38 L16.77 6.70 L17.02 6.98 L17.30 7.23 L17.62 7.45 L17.98 7.66 L18.37 7.86 L18.80 8.07 L19.25 8.31 L19.71 8.57 L20.18 8.86 L20.62 9.20 L21.03 9.58 L21.39 10.00 L21.69 10.46 L21.92 10.96 L22.05 11.47 L22.10 12.00 L22.05 12.53 L21.92 13.04 L21.69 13.54 L21.39 14.00 L21.03 14.42 L20.62 14.80 L20.18 15.14 L19.71 15.43 L19.25 15.69 L18.80 15.92 L18.37 16.14 L17.98 16.34 L17.62 16.55 L17.30 16.77 L17.02 17.02 L16.77 17.30 L16.55 17.62 L16.34 17.98 L16.14 18.37 L15.92 18.80 L15.69 19.25 L15.43 19.71 L15.14 20.18 L14.80 20.62 L14.42 21.03 L14.00 21.39 L13.54 21.69 L13.04 21.92 L12.53 22.05 L12.00 22.10 L11.47 22.05 L10.96 21.92 L10.46 21.69 L10.00 21.39 L9.58 21.03 L9.20 20.62 L8.86 20.18 L8.57 19.71 L8.31 19.25 L8.07 18.80 L7.86 18.37 L7.66 17.98 L7.45 17.62 L7.23 17.30 L6.98 17.02 L6.70 16.77 L6.38 16.55 L6.02 16.34 L5.63 16.14 L5.20 15.93 L4.75 15.69 L4.29 15.43 L3.82 15.14 L3.38 14.80 L2.97 14.42 L2.61 14.00 L2.31 13.54 L2.08 13.04 L1.95 12.53 L1.90 12.00 L1.95 11.47 L2.08 10.96 L2.31 10.46 L2.61 10.00 L2.97 9.58 L3.38 9.20 L3.82 8.86 L4.29 8.57 L4.75 8.31 L5.20 8.07 L5.63 7.86 L6.02 7.66 L6.38 7.45 L6.70 7.23 L6.98 6.98 L7.23 6.70 L7.45 6.38 L7.66 6.02 L7.86 5.63 L8.07 5.20 L8.31 4.75 L8.57 4.29 L8.86 3.82 L9.20 3.38 L9.58 2.97 L10.00 2.61 L10.46 2.31 L10.96 2.08 L11.47 1.95Z" fill="none" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="1.1" stroke-linejoin="round"/>
+          <path d="M12.00 4.90 L12.37 4.88 L12.76 4.81 L13.16 4.70 L13.58 4.57 L14.03 4.42 L14.51 4.26 L15.03 4.12 L15.56 4.00 L16.11 3.92 L16.67 3.90 L17.23 3.95 L17.77 4.06 L18.27 4.25 L18.74 4.52 L19.14 4.86 L19.48 5.26 L19.75 5.73 L19.94 6.23 L20.05 6.77 L20.10 7.32 L20.08 7.89 L20.00 8.44 L19.88 8.97 L19.74 9.49 L19.58 9.97 L19.43 10.42 L19.30 10.84 L19.19 11.24 L19.12 11.63 L19.10 12.00 L19.12 12.37 L19.19 12.76 L19.30 13.16 L19.43 13.58 L19.58 14.03 L19.74 14.51 L19.88 15.03 L20.00 15.56 L20.08 16.11 L20.10 16.67 L20.05 17.23 L19.94 17.77 L19.75 18.27 L19.48 18.74 L19.14 19.14 L18.74 19.48 L18.27 19.75 L17.77 19.94 L17.23 20.05 L16.67 20.10 L16.11 20.08 L15.56 20.00 L15.03 19.88 L14.51 19.74 L14.03 19.58 L13.58 19.43 L13.16 19.30 L12.76 19.19 L12.37 19.12 L12.00 19.10 L11.63 19.12 L11.24 19.19 L10.84 19.30 L10.42 19.43 L9.97 19.58 L9.49 19.74 L8.97 19.88 L8.44 20.00 L7.89 20.08 L7.32 20.10 L6.77 20.05 L6.23 19.94 L5.73 19.75 L5.26 19.48 L4.86 19.14 L4.52 18.74 L4.25 18.27 L4.06 17.77 L3.95 17.23 L3.90 16.68 L3.92 16.11 L4.00 15.56 L4.12 15.03 L4.26 14.51 L4.42 14.03 L4.57 13.58 L4.70 13.16 L4.81 12.76 L4.88 12.37 L4.90 12.00 L4.88 11.63 L4.81 11.24 L4.70 10.84 L4.57 10.42 L4.42 9.97 L4.26 9.49 L4.12 8.97 L4.00 8.44 L3.92 7.89 L3.90 7.32 L3.95 6.77 L4.06 6.23 L4.25 5.73 L4.52 5.26 L4.86 4.86 L5.26 4.52 L5.73 4.25 L6.23 4.06 L6.77 3.95 L7.32 3.90 L7.89 3.92 L8.44 4.00 L8.97 4.12 L9.49 4.26 L9.97 4.42 L10.42 4.57 L10.84 4.70 L11.24 4.81 L11.63 4.88Z" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div>
+        <h1>AEM Orbit <span class="badge">Video tutorial</span></h1>
+        <p id="summary">Recorded live in a real browser against real AEM author and publish instances.</p>
+      </div>
+    </div>
+    <a class="back" href="https://github.com/iam-udit/aem-orbit#readme">Back to the README</a>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="Video player">
+      <div class="screen">
+        <video id="player" controls preload="metadata" playsinline></video>
+        <p id="fallback" class="fallback" hidden>This video could not be loaded. Check your connection, or download it from the <a id="fallbackLink" href="https://github.com/iam-udit/aem-orbit/releases/tag/tutorial-videos">releases page</a>.</p>
+      </div>
+      <div class="meta">
+        <div class="meta-head">
+          <div>
+            <p class="kicker" id="kicker"></p>
+            <h2 id="title"></h2>
+          </div>
+          <div class="controls">
+            <button type="button" id="prev">Previous</button>
+            <button type="button" id="next">Next</button>
+            <label>Speed
+              <select id="speed">
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="autoplay" checked> Play next chapter automatically</label>
+          </div>
+        </div>
+        <p id="description"></p>
+        <h3>What you will see</h3>
+        <ul id="topics"></ul>
+      </div>
+    </section>
+
+    <nav class="playlist" aria-label="Chapters">
+      <div class="playlist-head">
+        <h2>Chapters</h2>
+        <span id="total"></span>
+      </div>
+      <ol id="chapters"></ol>
+    </nav>
+  </main>
+
+  <footer class="foot">
+    <p>Every chapter is a single unedited take. The extension makes no external calls; the voice is synthetic and only used for this video.</p>
+  </footer>
+
+  <script src="tutorial.js"></script>
+</body>
+</html>

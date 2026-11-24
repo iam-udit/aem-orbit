@@ -1,0 +1,168 @@
+{
+  "type": "object",
+  "properties": {
+    "environments": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "authorHost": {
+            "type": "string"
+          },
+          "publishHost": {
+            "type": "string"
+          },
+          "previewHost": {
+            "type": "string"
+          },
+          "dispatcherHost": {
+            "type": "string"
+          },
+          "dispatcherOmitHtml": {
+            "type": "boolean"
+          },
+          "publishUsesMappings": {
+            "type": "boolean"
+          },
+          "authType": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "bearer",
+              "session",
+              "none"
+            ]
+          },
+          "protected": {
+            "type": "boolean"
+          }
+        }
+      },
+      "title": "Pre-configured AEM environments for enterprise deployment."
+    },
+    "contentRoot": {
+      "type": "string",
+      "title": "Default content root path (e.g. /content/mysite)"
+    },
+    "appName": {
+      "type": "string",
+      "title": "Project folder name under /apps for CRXDE deep links"
+    },
+    "imsOrg": {
+      "type": "string",
+      "title": "Organisation name used in Universal Editor links (experience.adobe.com/#/@org/...)"
+    },
+    "urlMappings": {
+      "type": "string",
+      "title": "Public URL to JCR path mappings"
+    },
+    "requestTimeoutSec": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 120,
+      "title": "AEM API request timeout in seconds (5-120)"
+    },
+    "envOrder": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Environment ordering list"
+    },
+    "lockConfiguration": {
+      "type": "boolean",
+      "title": "Lock configuration: prevent users from editing pre-configured environments or settings"
+    },
+    "enforceSessionAuthOnly": {
+      "type": "boolean",
+      "title": "Enforce Browser Session SSO authentication only; disables local credential storage"
+    },
+    "profiles": {
+      "type": "object",
+      "title": "Multi-site / Multi-brand profiles",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "contentRoot": {
+            "type": "string"
+          },
+          "appName": {
+            "type": "string"
+          },
+          "urlMappings": {
+            "type": "string"
+          },
+          "matchDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "controlPolicy": {
+      "type": "object",
+      "title": "Team control policy: controls members cannot use",
+      "properties": {
+        "disabledControls": {
+          "type": "array",
+          "title": "Controls switched off on every environment",
+          "items": {
+            "type": "string",
+            "enum": [
+              "publish",
+              "unpublish",
+              "publishPreview",
+              "treePublish",
+              "bulkPublish",
+              "delete",
+              "sync",
+              "saveVersion",
+              "restoreVersion",
+              "lock",
+              "findReplace",
+              "flushDispatcher",
+              "developerMode"
+            ]
+          }
+        },
+        "byEnvironment": {
+          "type": "object",
+          "title": "Controls switched off on one environment (key = environment key, e.g. prod)",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "disabledControls": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "publish",
+                    "unpublish",
+                    "publishPreview",
+                    "treePublish",
+                    "bulkPublish",
+                    "delete",
+                    "sync",
+                    "saveVersion",
+                    "restoreVersion",
+                    "lock",
+                    "findReplace",
+                    "flushDispatcher"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

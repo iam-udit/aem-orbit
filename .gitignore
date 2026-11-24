@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local environment / secrets — never commit
+.env
+.env.*
+*.pem
+*.key
+*.crx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Logs
+npm-debug.log*
+*.log
+.bob/
+
+# Demo video build output and recordings
+video/build/
+video/out/
+video/work/
+
+# Tutorial videos are release assets, not repository files (local preview copies/symlinks only)
+docs/tutorial/videos/
