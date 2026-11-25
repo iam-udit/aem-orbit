@@ -54,5 +54,5 @@ await sw.eval(`(async () => {
   const granted = await chrome.permissions.getAll();
   return granted.origins.length;
 })()`).then((n) => console.log(`settings seeded (${n} host grants)`))
-await sw.eval(`chrome.runtime.sendMessage({ type: 'SYNC_CONTENT_SCRIPTS' }).catch(() => null), 1`)
+await sw.eval(`chrome.runtime.sendMessage({ action: 'SYNC_CONTENT_SCRIPTS' }).catch(() => null), 1`)
 sw.close()

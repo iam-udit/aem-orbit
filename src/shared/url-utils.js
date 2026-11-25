@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file URL, Repository Path, and Environment Mapping Utilities.
  * @module shared/url-utils
@@ -23,6 +24,16 @@ const WRAPPER_PREFIXES = [
  */
 export function safeOrigin(hostStr) {
   try { return new URL(hostStr).origin; } catch { return null; }
+}
+
+/**
+ * Strips whitespace and trailing slashes from an environment host URL.
+ *
+ * @param {string} hostStr - Raw host URL string.
+ * @returns {string}
+ */
+export function normalizeHostUrl(hostStr) {
+  return String(hostStr || '').trim().replace(/\/+$/, '');
 }
 
 /**
@@ -222,9 +233,9 @@ export function buildPageUrl(host, path, { html = true } = {}) {
  */
 export function parseMsmPath(jcrPath) {
   const path = String(jcrPath || '');
-  const lm = path.match(/^(\/content\/[^/]+)\/language-masters\/([a-z]{2}(?:_[a-z]{2})?)(?:\/(.*))?$/i);
+  const lm = path.match(/^(\/content\/.+?)\/language-masters\/([a-z]{2}(?:[-_][a-z]{2,4})?)(?:\/(.*))?$/i);
   if (lm) return { kind: 'master', siteRoot: lm[1], lang: lm[2], relPath: lm[3] || '' };
-  const lc = path.match(/^(\/content\/[^/]+)\/([a-z]{2}(?:-[a-z]{2})?)\/([a-z]{2}(?:_[a-z]{2})?)(?:\/(.*))?$/i);
+  const lc = path.match(/^(\/content\/[^/]+)\/([a-z]{2}(?:-[a-z]{2})?|emea|apac|latam)\/([a-z]{2}(?:[-_][a-z]{2,4})?)(?:\/(.*))?$/i);
   if (lc) return { kind: 'livecopy', siteRoot: lc[1], region: lc[2], lang: lc[3], relPath: lc[4] || '' };
   return null;
 }

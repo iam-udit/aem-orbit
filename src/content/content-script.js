@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * AEM Orbit — Content Script
  *
@@ -25,6 +26,8 @@ import { createMessenger, failToast, escHtml, runReplication, runDelete, confirm
 import { isControlAllowed } from '../shared/control-policy.js';
 import { syncTheme } from '../shared/theme-dom.js';
 import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
+import { PERSONA_DEFS, resolvePersonaState, isPersonaToolEnabled } from '../shared/persona.js';
+import { getExtApi, copyToClipboard, createTimeoutSignal, compatStorageGet, compatStorageSet } from '../shared/browser-compat.js';
 
 (function () {
   'use strict';
@@ -47,6 +50,8 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   let statusData   = null;           // last GET_PAGE_STATUS reply, shown in the details panel
   let savedPos     = null;           // dragged toolbar position {cx, bottom}, remembered per site
   let devMode      = { enabled: false, buttons: { jcr: true, overlays: true, highlight: true, inspect: true, tools: true, reload: true, delete: true, sync: true } };
+  let personaState = resolvePersonaState({});
+  let lockConfig   = false;
   let toolbarLayout = defaultLayout(); // which buttons sit on the regular / expanded bar (Settings → Toolbar)
   let controlPolicy = null;            // administrator policy (managed storage): controls switched off for this team
   let orbMode      = true;             // default: the collapsed bar is a floating orb unless classicBar is enabled (Settings → Toolbar)
@@ -129,6 +134,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     unknown:   { label: '—',         cls: 'asp-s-unknown'   },
   };
 
+  /** Updates the toolbar publication status badge, orb indicator, and last-modified tooltip. */
   function updateStatus(status, lastModified) {
     const pill = document.getElementById('asp-status-pill');
     if (!pill) return;
@@ -157,6 +163,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
    */
   const HIGHLIGHT_SELECTOR = '[data-cmp-is],.parsys,.responsivegrid,.aem-GridColumn';
 
+  /** Recomputes and paints fixed component badge labels over highlighted Core Components. */
   function drawHighlightLabels() {
     document.getElementById('asp-highlight-labels')?.remove();
     if (!isEditableRegionsHighlighted) return;
@@ -181,6 +188,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     _hlRaf = requestAnimationFrame(drawHighlightLabels);
   }
 
+  /** Toggles editable component outlines and component-type badge overlays on the page. */
   function toggleEditableHighlight() {
     isEditableRegionsHighlighted = !isEditableRegionsHighlighted;
     const existing = document.getElementById('asp-highlight-style');
@@ -229,7 +237,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
     const configuredKeys = envOrder.filter((k) => {
       const c = envsCfg[k];
-      return c && (c.authorHost || c.publishHost || c.dispatcherHost);
+      return c && (c.authorHost || c.publishHost || c.previewHost || c.dispatcherHost);
     });
 
     // Built with DOM APIs (not innerHTML) — env labels are user-controlled.
@@ -274,6 +282,8 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
           <span id="asp-inspector-title">JCR Properties — jcr:content</span>
         </div>
         <div class="asp-inspector-header-right">
+          <button class="asp-inspector-btn" id="asp-inspector-expand" title="Expand all nodes">Expand</button>
+          <button class="asp-inspector-btn" id="asp-inspector-collapse" title="Collapse nested nodes">Collapse</button>
           <button class="asp-inspector-btn" id="asp-inspector-copy" title="Copy all as JSON" aria-label="Copy all as JSON">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
             Copy
@@ -445,6 +455,14 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
             <span class="asp-lbl">Reload</span>
           </button>
+          <button class="asp-btn" id="asp-audit-btn" title="SEO &amp; accessibility audit">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span class="asp-lbl">Audit</span>
+          </button>
+          <button class="asp-btn" id="asp-cache-btn" title="Cache &amp; dispatcher headers">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            <span class="asp-lbl">Cache</span>
+          </button>
           <button class="asp-btn asp-btn-danger" id="asp-delete-btn" title="Delete page">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             <span class="asp-lbl">Delete</span>
@@ -525,13 +543,19 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       if (lc && !k.toLowerCase().includes(lc) && !String(v).toLowerCase().includes(lc)) return;
       const row = document.createElement('div');
       row.className = 'asp-tree-prop';
+      const valText = Array.isArray(v) ? `[${v.join(', ')}]` : String(v);
+      row.title = 'Click to copy property value';
       const key = document.createElement('span');
       key.className = 'asp-insp-key';
       key.textContent = k;
       const val = document.createElement('span');
       val.className = 'asp-insp-val';
-      val.textContent = Array.isArray(v) ? `[${v.join(', ')}]` : String(v);
+      val.textContent = valText;
       row.append(key, val);
+      row.addEventListener('click', async () => {
+        await copyToClipboard(valText);
+        toast(`✓ Copied ${k}`, 'success');
+      });
       frag.appendChild(row);
     });
 
@@ -566,24 +590,51 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     }
   }
 
+  /**
+   * Positions a fixed floating menu/panel/card safely inside the viewport.
+   * Long lists (such as Locales or JCR trees) are constrained to the screen height,
+   * centered vertically when they exceed the space above/below the toolbar, and scroll internally.
+   */
+  function fitFloatingBox(box, refRect, { alignLeft, preferredMaxH } = {}) {
+    const margin = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    box.style.maxHeight = '';
+    const naturalH = box.offsetHeight || 0;
+    const w = box.offsetWidth || 0;
+    const wantLeft = alignLeft ?? (refRect ? refRect.left + refRect.width / 2 - w / 2 : margin);
+    box.style.left = `${Math.max(margin, Math.min(wantLeft, vw - w - margin))}px`;
+
+    const cap = Math.min(preferredMaxH || Math.round(vh * 0.68), vh - margin * 2);
+    const spaceAbove = refRect ? Math.max(0, refRect.top - 8 - margin) : vh - margin * 2;
+    const spaceBelow = refRect ? Math.max(0, vh - refRect.bottom - 8 - margin) : vh - margin * 2;
+
+    if (refRect && naturalH > spaceAbove && naturalH > spaceBelow) {
+      const maxH = Math.max(160, Math.min(cap, vh - margin * 2));
+      box.style.maxHeight = `${maxH}px`;
+      const actualH = Math.min(naturalH, maxH);
+      box.style.top = `${Math.max(margin, Math.round((vh - actualH) / 2))}px`;
+      return;
+    }
+
+    const putAbove = refRect ? (spaceAbove >= naturalH || spaceAbove >= spaceBelow) : false;
+    const maxH = Math.max(140, Math.min(cap, putAbove ? spaceAbove : spaceBelow));
+    box.style.maxHeight = `${maxH}px`;
+    const actualH = Math.min(naturalH, maxH);
+    if (!refRect) {
+      box.style.top = `${Math.max(margin, Math.round((vh - actualH) / 2))}px`;
+    } else if (putAbove) {
+      box.style.top = `${Math.max(margin, refRect.top - actualH - 8)}px`;
+    } else {
+      box.style.top = `${Math.min(vh - actualH - margin, refRect.bottom + 8)}px`;
+    }
+  }
+
   function positionInspector() {
     const bar   = document.getElementById('asp-bar');
     const panel = document.getElementById('asp-inspector');
     if (!bar || !panel) return;
-    const barRect = bar.getBoundingClientRect();
-    const ph      = panel.offsetHeight;
-    const pw      = panel.offsetWidth;
-    // Centre above bar, never off-screen left/right
-    let left = barRect.left + (barRect.width / 2) - (pw / 2);
-    left     = Math.max(12, Math.min(left, window.innerWidth - pw - 12));
-    panel.style.left = `${left}px`;
-
-    // 8px clean gap from outer toolbar (flip below if bar is placed near top of screen)
-    if (barRect.top >= ph + 16 || barRect.top >= window.innerHeight - barRect.bottom) {
-      panel.style.top = `${Math.max(8, barRect.top - ph - 8)}px`;
-    } else {
-      panel.style.top = `${barRect.bottom + 8}px`;
-    }
+    fitFloatingBox(panel, bar.getBoundingClientRect(), { preferredMaxH: 460 });
   }
 
   function openInspector() {
@@ -647,26 +698,15 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const chip   = envAnchor();
     if (!picker || !chip) return;
 
-    picker.style.display = 'block';
+    picker.style.display = 'flex';
     picker.setAttribute('role', 'menu');
     picker.querySelectorAll('.asp-env-pick-btn').forEach((b) => b.setAttribute('role', 'menuitemradio'));
     // As an orb the picker opens on its own (the fan is closed): centred above the orb, not on a leaf.
-    const chipRect   = chip.getBoundingClientRect();
-    const barRect    = document.getElementById('asp-bar')?.getBoundingClientRect() || chipRect;
-    const pickerH    = picker.offsetHeight;
-    const pickerW    = picker.offsetWidth;
-
-    // Horizontal positioning clamped within viewport
-    const wanted = orbActive() ? barRect.left + barRect.width / 2 - pickerW / 2 : chipRect.left;
-    const left = Math.max(12, Math.min(wanted, window.innerWidth - pickerW - 12));
-    picker.style.left = `${left}px`;
-
-    // 8px clean gap from the outer toolbar boundary (flip below if bar is near top of screen)
-    if (barRect.top >= pickerH + 16 || barRect.top >= window.innerHeight - barRect.bottom) {
-      picker.style.top = `${barRect.top - pickerH - 8}px`;
-    } else {
-      picker.style.top = `${barRect.bottom + 8}px`;
-    }
+    const chipRect = chip.getBoundingClientRect();
+    const barRect  = document.getElementById('asp-bar')?.getBoundingClientRect() || chipRect;
+    const pickerW  = picker.offsetWidth;
+    const wanted   = orbActive() ? barRect.left + barRect.width / 2 - pickerW / 2 : chipRect.left;
+    fitFloatingBox(picker, barRect, { alignLeft: wanted, preferredMaxH: Math.round(window.innerHeight * 0.65) });
 
     chip.classList.add('asp-env-chip-open');
     chip.setAttribute('aria-expanded', 'true');
@@ -688,11 +728,17 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
   // ─── Minimize / Maximize ─────────────────────────────────────────────────────
 
-  /** A layout item only takes space on the bar when it can actually be used. */
+  /** A layout item only takes space on the bar when it can actually be used under the active persona & policy. */
   function layoutItemVisible(item) {
-    if (item.dev && !(devMode.enabled && devMode.buttons[item.dev] !== false)) return false;
+    if (item.dev && item.qa) {
+      if (!isPersonaToolEnabled(personaState, item.dev) && !isPersonaToolEnabled(personaState, item.qa)) return false;
+    } else if (item.dev && !isPersonaToolEnabled(personaState, item.dev)) {
+      return false;
+    } else if (item.qa && !isPersonaToolEnabled(personaState, item.qa)) {
+      return false;
+    }
     if (item.id === 'sync' && !allowed('sync')) return false;
-    if (item.id === 'publish' && !['publish', 'unpublish', 'publishPreview'].some(allowed)) return false;
+    if (item.id === 'publish' && (!personaState.showReplication || !['publish', 'unpublish', 'publishPreview'].some(allowed))) return false;
     if (item.id === 'palette' && !featureFlags.enableKeyboardShortcut) return false;
     return true;
   }
@@ -722,9 +768,9 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
           if (e) cluster.appendChild(e);
         });
       } else {
-        orbLeafOrder(devMode.enabled && devMode.buttons.jcr !== false).forEach((id) => {
+        orbLeafOrder(isPersonaToolEnabled(personaState, 'jcr'), personaState.persona).forEach((id) => {
           if (id === 'env') { if (envBtn) cluster.appendChild(envBtn); return; }
-          const e = document.getElementById(ITEM_BY_ID[id].elId);
+          const e = document.getElementById(ITEM_BY_ID[id]?.elId || '');
           if (e) { toFan(e, ITEM_BY_ID[id]); cluster.appendChild(e); }
         });
       }
@@ -748,9 +794,11 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   }
 
   function applyMinimized() {
+    const root   = document.getElementById('aem-sidekick-pro-root');
     const bar    = document.getElementById('asp-bar');
     const center = document.getElementById('asp-center-cluster');
     const mini   = document.getElementById('asp-mini-cluster');
+    if (root)   root.classList.toggle('asp-root-orb', isMinimized && orbMode);
     if (bar)    bar.classList.toggle('asp-orb', orbMode);
     if (bar)    bar.classList.toggle('asp-minimized', isMinimized);
     if (center) center.style.display = isMinimized ? 'none' : '';
@@ -1037,12 +1085,21 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
   function handleKeydown(e) {
     if (e.key === 'Escape' && !document.getElementById('asp-dialog')) {
+      if (document.getElementById('asp-palette')) { closePalette(); return; }
       if (document.getElementById('asp-menu')) return closeMenu();
       if (isEnvPickerOpen) {
         closeEnvPicker();
         // As an orb the dropdown stands in for the fan, so focus goes back to the orb (and the fan it opens is closed again)
         document.getElementById(orbActive() ? 'asp-logo-btn' : 'asp-env-chip')?.focus();
         if (orbActive()) closeOrbFan();
+        return;
+      }
+      const openPanel = ['asp-inspector', 'asp-audit-panel', 'asp-cache-panel', 'asp-status-panel', 'asp-component-card', 'asp-asset-card']
+        .map((id) => document.getElementById(id))
+        .find((el) => el && el.style.display !== 'none');
+      if (openPanel) {
+        if (openPanel.id === 'asp-inspector') closeInspector();
+        else openPanel.remove();
         return;
       }
       if (orbEnvOpen) { setOrbEnvs(false); document.getElementById('asp-orb-env-btn')?.focus(); return; }
@@ -1088,10 +1145,13 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     overlays: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>',
     highlight: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 4.5c-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5-1.45 0-2.99.22-4.28.79C1.49 5.62 1 6.33 1 7.14v11.28c0 1.3 1.22 2.26 2.48 1.94.98-.26 2.01-.36 3.02-.36 1.56 0 3.22.26 4.56.92.6.3 1.28.3 1.87 0 1.34-.67 3-.92 4.56-.92 1.01 0 2.04.1 3.02.36 1.26.33 2.48-.63 2.48-1.94V7.14c0-.81-.49-1.52-1.22-1.85C18.8 4.72 17.26 4.5 17.5 4.5z"/></svg>',
     reload: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
+    audit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>',
+    cache: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>',
+    persona: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>',
   };
 
   /**
-   * Floating menu above a toolbar button.
+   * Floating menu above a toolbar button (scrolls internally when tall).
    * Items: {label, url, icon} | {label, onClick, icon} | {section} | {separator} | {loading: 'text'}; any item may have
    * `hint` (tooltip), `desc` (one-line explanation shown under the label) and `danger`.
    */
@@ -1110,7 +1170,9 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const head = document.createElement('div');
     head.className   = 'asp-env-picker-label';
     head.textContent = title;
-    menu.appendChild(head);
+    const listWrap = document.createElement('div');
+    listWrap.className = 'asp-menu-items';
+    menu.append(head, listWrap);
     // If any row has an icon, rows without one get an empty slot so labels stay aligned.
     const hasIcons = items.some((it) => it.icon);
     items.forEach((it) => {
@@ -1118,7 +1180,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         const hr = document.createElement('div');
         hr.className = 'asp-menu-sep';
         hr.setAttribute('role', 'separator');
-        menu.appendChild(hr);
+        listWrap.appendChild(hr);
         return;
       }
       if (it.loading) {
@@ -1129,14 +1191,14 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         const txt = document.createElement('span');
         txt.textContent = it.loading;
         row.appendChild(txt);
-        menu.appendChild(row);
+        listWrap.appendChild(row);
         return;
       }
       if (it.section) {
         const sec = document.createElement('div');
         sec.className   = 'asp-env-picker-label asp-menu-sec';
         sec.textContent = it.section;
-        menu.appendChild(sec);
+        listWrap.appendChild(sec);
         return;
       }
       const b = document.createElement('button');
@@ -1175,7 +1237,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         if (it.onClick) it.onClick();
         else if (it.url) window.open(it.url, '_blank', 'noopener');
       });
-      menu.appendChild(b);
+      listWrap.appendChild(b);
     });
     // Arrow keys move through the items; Esc closes and returns focus to the button.
     menu.addEventListener('keydown', (e) => {
@@ -1194,6 +1256,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       }
       else if (e.key === 'Escape')    { e.preventDefault(); e.stopPropagation(); closeMenu(); anchor.focus(); }
     });
+    menu.style.display = 'flex';
     document.body.appendChild(menu);
     menu._anchor = anchor;
     anchor.setAttribute?.('aria-expanded', 'true');
@@ -1202,17 +1265,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const r = orbActive() ? leafRect(anchor) : anchor.getBoundingClientRect();
     // From the orb's fan the menu sits next to the leaf it came from, not the (tiny) orb.
     const refRect = (orbActive() ? r : barRect) || r;
-    const menuH = menu.offsetHeight;
-    const menuW = menu.offsetWidth;
-    const left = Math.max(12, Math.min(r.left, window.innerWidth - menuW - 12));
-    menu.style.left = `${left}px`;
-
-    // 8px clean gap from outer toolbar (flip below if bar is placed near top of screen)
-    if (refRect.top >= menuH + 16 || refRect.top >= window.innerHeight - refRect.bottom) {
-      menu.style.top = `${Math.max(8, refRect.top - menuH - 8)}px`;
-    } else {
-      menu.style.top = `${refRect.bottom + 8}px`;
-    }
+    fitFloatingBox(menu, refRect, { alignLeft: r.left, preferredMaxH: Math.round(window.innerHeight * 0.65) });
     menu.querySelector('.asp-menu-item:not(:disabled)')?.focus({ preventScroll: true });
   }
 
@@ -1244,6 +1297,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     author: 'Author',        // any other Author page
   };
 
+  /** Refreshes the toolbar tier chip text (`Edit`/`Preview`/`Published`/`Live`/`Author`). */
   function updateTierLabel() {
     const lbl = document.getElementById('asp-tier-label');
     if (!lbl) return;
@@ -1266,8 +1320,9 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     }
   }
 
+  /** Opens the floating tier switcher menu (`Edit`, `Universal Editor`, `View`, `Preview`, `Published`, `Live`). */
   async function openTierMenu() {
-    if (document.getElementById('asp-menu')) return closeMenu();
+    if (document.getElementById('asp-menu')?._anchor?.id === 'asp-tier-btn') return closeMenu();
     if (!jcrPath) return toast('JCR path not available', 'warn');
     const v = await msg('GET_URL_VARIANTS', { jcrPath });
     const items = [
@@ -1291,11 +1346,14 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     openMenu('asp-tier-btn', 'Switch Tier / View', items);
   }
 
+  /** Opens the Developer Tools dropdown menu (CRXDE, PackMgr, JSON endpoints, debug flags). */
   async function openToolsMenu() {
-    if (document.getElementById('asp-menu')) return closeMenu();
+    if (document.getElementById('asp-menu')?._anchor?.id === 'asp-tools-btn') return closeMenu();
     if (!jcrPath) return toast('JCR path not available', 'warn');
     const v = await msg('GET_URL_VARIANTS', { jcrPath });
     const here = window.location;
+    const hereParams = new URLSearchParams(here.search);
+    const hasDebugParams = ['debug', 'nocache', 'wcmmode', 'debugClientLibs'].some((p) => hereParams.has(p));
     const inEditor = here.pathname.startsWith('/editor.html');
     const onAuthor = pageTier === 'author';
     const nav = (url) => () => { window.location.href = url; };
@@ -1319,7 +1377,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         onClick: !onAuthor ? nav(withParam('nocache', Date.now().toString(36))) : null,
         hint: 'Adds a unique query string so dispatcher/CDN serve a fresh copy' },
       { label: 'Clear debug params',
-        onClick: (here.search.includes('debug') || here.search.includes('nocache') || here.search.includes('wcmmode'))
+        onClick: hasDebugParams
           ? nav((() => { const u = new URL(here.href); ['debug', 'nocache', 'wcmmode', 'debugClientLibs'].forEach((p) => u.searchParams.delete(p)); return u.toString(); })())
           : null },
       { separator: true },
@@ -1333,10 +1391,11 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
   const clickPool = (id) => () => document.getElementById(id)?.click();
 
+  /** Builds and opens the overflow/More menu adapted to the active persona and policy. */
   function openMoreMenu() {
     if (document.getElementById('asp-menu')?._anchor?.id === 'asp-more-btn') return closeMenu();
     const items = [
-      { section: 'This page' },
+      { section: `This page · ${PERSONA_DEFS[personaState.persona]?.label || 'Custom'}` },
       { label: 'Page properties', icon: MENU_ICONS.props, desc: 'Open the AEM properties dialog for this page', onClick: async () => {
         if (!jcrPath) return toast('JCR path not available', 'warn');
         const { propertiesUrl } = await msg('GET_URL_VARIANTS', { jcrPath });
@@ -1348,10 +1407,30 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         { label: 'Asset / Content Fragment details', icon: MENU_ICONS.dam, desc: 'Metadata, and for a Content Fragment its model, variations and headless JSON', onClick: () => showAssetCard(jcrPath) },
       ] : []),
       { label: 'Copy page URL', icon: MENU_ICONS.copy, desc: 'Copy the address of this page to the clipboard', onClick: async () => {
-        await navigator.clipboard.writeText(window.location.href.split('#')[0]);
+        await copyToClipboard(window.location.href.split('#')[0]);
         toast('✓ URL copied', 'success');
       } },
     ];
+
+    const qaRows = [];
+    if (isPersonaToolEnabled(personaState, 'audit')) {
+      qaRows.push({ label: 'SEO & accessibility check', desc: 'Title, headings, alt text, ARIA & broken links', icon: MENU_ICONS.audit, onClick: runAudit });
+    }
+    if (isPersonaToolEnabled(personaState, 'cache')) {
+      qaRows.push({ label: 'Cache & dispatcher headers', desc: 'Inspect CDN X-Cache, Age & Cache-Control headers', icon: MENU_ICONS.cache, onClick: showCacheHeaders });
+    }
+    if (personaState.persona === 'qa') {
+      if (isPersonaToolEnabled(personaState, 'highlight')) {
+        qaRows.push({ label: 'Highlight components', desc: 'Outline every editable component', icon: MENU_ICONS.highlight, onClick: clickPool('asp-highlight-btn') });
+      }
+      if (isPersonaToolEnabled(personaState, 'reload')) {
+        qaRows.push({ label: 'Hard reload', desc: 'Reload this page and skip the browser cache', icon: MENU_ICONS.reload, onClick: clickPool('asp-reload-btn') });
+      }
+    }
+    if (qaRows.length) {
+      items.push({ section: 'QA verification' }, ...qaRows);
+    }
+
     if (devMode.enabled) {
       const dev = [
         ['overlays',  'asp-overlay-btn',   'Show / hide overlays', 'Toggle the AEM editor overlays', MENU_ICONS.overlays],
@@ -1377,6 +1456,23 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
         icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="${i.icon}"/></svg>`,
         onClick: () => document.getElementById(i.elId)?.click(),
       }));
+    }
+    if (!lockConfig && personaState.allowedPersonas?.length > 1) {
+      items.push({ section: 'Workspace Persona' });
+      personaState.allowedPersonas.forEach((p) => {
+        const def = PERSONA_DEFS[p];
+        const active = personaState.persona === p;
+        items.push({
+          label: `${active ? '✓ ' : ''}${def.label}`,
+          desc: def.summary,
+          icon: MENU_ICONS.persona,
+          onClick: async () => {
+            const res = await msg('SET_PERSONA', { persona: p });
+            if (res.ok) toast(`✓ Switched to ${def.label} persona`, 'success');
+            else toast(`✗ ${res.error}`, 'error');
+          },
+        });
+      });
     }
     items.push({ separator: true });
     items.push({ label: 'Search all commands', icon: MENU_ICONS.search, desc: `Type to find any action (${isMac ? '⌘' : 'Ctrl'}+K)`, onClick: openPalette });
@@ -1465,13 +1561,11 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   const STATE_KEY = `asp-ui:${window.location.origin}`;
 
   function loadUiState() {
-    return new Promise((resolve) => {
-      try { chrome.storage.local.get(STATE_KEY, (r) => resolve(r?.[STATE_KEY] || {})); } catch { resolve({}); }
-    });
+    return compatStorageGet('local', { [STATE_KEY]: {} }).then((r) => r?.[STATE_KEY] || {}).catch(() => ({}));
   }
   function saveUiState(patch) {
     loadUiState().then((cur) => {
-      try { chrome.storage.local.set({ [STATE_KEY]: { ...cur, ...patch } }); } catch { /* ignore */ }
+      compatStorageSet('local', { [STATE_KEY]: { ...cur, ...patch } }).catch(() => {});
     });
   }
 
@@ -1679,20 +1773,11 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   const LINK_CHECK_MAX = 25;
   const LINK_CHECK_CONCURRENCY = 5;
 
+  /** Positions a floating panel relative to the toolbar bounds safely inside the viewport. */
   function placeAboveBar(panel) {
     const bar = barBox();
     if (!bar) return;
-    const ph = panel.offsetHeight;
-    const pw = panel.offsetWidth;
-    const left = bar.left + bar.width / 2 - pw / 2;
-    panel.style.left = `${Math.max(12, Math.min(left, window.innerWidth - pw - 12))}px`;
-
-    // 8px clean gap from outer toolbar (flip below if bar is placed near top of screen)
-    if (bar.top >= ph + 16 || bar.top >= window.innerHeight - bar.bottom) {
-      panel.style.top = `${Math.max(8, bar.top - ph - 8)}px`;
-    } else {
-      panel.style.top = `${bar.bottom + 8}px`;
-    }
+    fitFloatingBox(panel, bar, { preferredMaxH: 460 });
   }
 
   /** Create a floating panel with the inspector look. Returns its body element. */
@@ -1720,6 +1805,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     return { panel, body };
   }
 
+  /** Creates a DOM element with optional CSS class and `textContent`. */
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -1736,14 +1822,16 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
   const OWN_UI = '#aem-sidekick-pro-root,#asp-inspector,#asp-menu,#asp-toast,.asp-float-panel,#asp-component-card,#asp-palette,#asp-env-picker,#asp-highlight-labels';
 
+  /** Probes a same-origin URL via HEAD (falling back to GET on 405) to detect broken links. */
   async function linkStatus(url) {
     try {
-      let r = await fetch(url, { method: 'HEAD', credentials: 'same-origin', signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
-      if (r.status === 405) r = await fetch(url, { credentials: 'same-origin', signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
+      let r = await fetch(url, { method: 'HEAD', credentials: 'same-origin', signal: createTimeoutSignal(NET_TIMEOUT_MS).signal });
+      if (r.status === 405) r = await fetch(url, { credentials: 'same-origin', signal: createTimeoutSignal(NET_TIMEOUT_MS).signal });
       return r.status;
     } catch { return 0; } // timeout / network — not reported as broken
   }
 
+  /** Collects SEO, heading, image, ARIA, duplicate-ID, and internal-link facts from the live page DOM. */
   async function collectAuditFacts() {
     const d    = pageDocument();
     const own  = (e) => !e.closest(OWN_UI);
@@ -1758,12 +1846,13 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const hasLabel = (e) => !!(e.getAttribute('aria-label') || e.getAttribute('aria-labelledby') || e.getAttribute('title')
       || e.closest('label') || (e.id && d.querySelector(`label[for="${CSS.escape(e.id)}"]`)));
 
-    const here = window.location.href.split('#')[0];
+    const docLoc = d.location || window.location;
+    const here = docLoc.href.split('#')[0];
     const internal = [...new Set(all('a[href]').map((a) => {
       try {
-        const u = new URL(a.href);
+        const u = new URL(a.href, docLoc.href);
         u.hash = '';
-        return u.origin === window.location.origin && /^https?:$/.test(u.protocol) ? u.href : null;
+        return u.origin === docLoc.origin && /^https?:$/.test(u.protocol) ? u.href : null;
       } catch { return null; }
     }).filter((u) => u && u !== here))].slice(0, LINK_CHECK_MAX);
 
@@ -1773,6 +1862,13 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       const codes = await Promise.all(batch.map(linkStatus));
       codes.forEach((status, j) => { if (status >= 400) brokenLinks.push({ href: batch[j], status }); });
     }
+
+    const idCounts = new Map();
+    all('[id]').forEach((node) => { if (node.id) idCounts.set(node.id, (idCounts.get(node.id) || 0) + 1); });
+    const duplicateIds = [...idCounts.entries()].filter(([, n]) => n > 1).map(([id]) => id);
+    const imgs = all('img');
+    const imgsBroken = imgs.filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.currentSrc || i.src || '(inline)');
+    const imgsNoDimensions = imgs.filter((i) => !i.getAttribute('width') || !i.getAttribute('height')).length;
 
     return {
       title:          d.title || '',
@@ -1784,18 +1880,22 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       hreflang:       [...d.querySelectorAll('link[rel="alternate"][hreflang]')].map((l) => l.getAttribute('hreflang')),
       og,
       headings:       all('h1,h2,h3,h4,h5,h6').map((h) => Number(h.tagName[1])),
-      imgsMissingAlt: all('img:not([alt])').map((i) => i.currentSrc || i.src || '(inline)'),
+      imgsMissingAlt: imgs.filter((i) => !i.hasAttribute('alt')).map((i) => i.currentSrc || i.src || '(inline)'),
       linksNoText:    all('a[href]').filter((a) => !hasName(a)).length,
       buttonsNoName:  all('button,[role="button"]').filter((b) => !hasName(b)).length,
       inputsNoLabel:  all('input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image]),select,textarea')
         .filter((i) => !hasLabel(i)).length,
       brokenLinks,
       linksChecked:   internal.length,
+      duplicateIds,
+      imgsBroken,
+      imgsNoDimensions,
     };
   }
 
   const AUDIT_ICON = { pass: '✓', warn: '!', fail: '✗', info: 'i' };
 
+  /** Runs an on-page SEO & accessibility audit and renders scored results with JSON copy/export. */
   async function runAudit() {
     const { panel, body } = showFloatingPanel('asp-audit-panel', 'SEO & Accessibility');
     body.textContent = `Checking page and up to ${LINK_CHECK_MAX} internal links…`;
@@ -1804,9 +1904,27 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     if (!result.ok) { body.textContent = `Error: ${result.error}`; return; }
 
     body.replaceChildren();
+    const topRow = el('div', 'asp-audit-top');
     const score = el('div', 'asp-audit-score', `Score ${result.score}/100`);
     score.dataset.level = result.score >= 85 ? 'good' : result.score >= 60 ? 'ok' : 'bad';
-    body.appendChild(score);
+    const actions = el('div', 'asp-audit-actions');
+    const copyBtn = el('button', 'asp-inspector-btn', 'Copy JSON');
+    copyBtn.addEventListener('click', async () => {
+      await copyToClipboard(JSON.stringify({ url: window.location.href, jcrPath, ...result }, null, 2));
+      toast('✓ Audit JSON copied', 'success');
+    });
+    const dlBtn = el('button', 'asp-inspector-btn', 'Export JSON');
+    dlBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify({ url: window.location.href, jcrPath, ...result }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aem-orbit-audit-${Date.now()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    actions.append(copyBtn, dlBtn);
+    topRow.append(score, actions);
+    body.appendChild(topRow);
     let group = '';
     result.checks.forEach((c) => {
       if (c.group !== group) body.appendChild(el('div', 'asp-audit-group', (group = c.group)));
@@ -1822,13 +1940,17 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
 
   const CACHE_HEADER_RE = /^(age|cache-control|surrogate-control|cdn-cache-control|expires|etag|last-modified|vary|via|server|content-type|content-encoding|strict-transport-security|x-.*)$/i;
 
+  /** Fetches and displays CDN/dispatcher cache headers for the current rendered page. */
   async function showCacheHeaders() {
     const { panel, body } = showFloatingPanel('asp-cache-panel', 'Cache & Dispatcher Headers');
-    const url = window.location.href.split('#')[0];
+    const rawUrl = window.location.href.split('#')[0];
+    const url = (window.location.pathname.startsWith('/editor.html') && jcrPath)
+      ? `${window.location.origin}${jcrPath}.html?wcmmode=disabled`
+      : rawUrl;
     let res;
     try {
-      res = await fetch(url, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
-      if (res.status === 405) res = await fetch(url, { cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
+      res = await fetch(url, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin', signal: createTimeoutSignal(NET_TIMEOUT_MS).signal });
+      if (res.status === 405) res = await fetch(url, { cache: 'no-store', credentials: 'same-origin', signal: createTimeoutSignal(NET_TIMEOUT_MS).signal });
     } catch {
       body.textContent = 'Request failed or timed out.';
       return;
@@ -1843,9 +1965,12 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     else if (/MISS|PASS/.test(xc)) verdict = 'CDN cache miss — fetched from origin.';
     else verdict = 'No CDN cache indicators in the response.';
     if (/no-store|private/i.test(h('cache-control'))) verdict += ' Response is not cacheable (Cache-Control).';
-    if (pageTier === 'author') verdict += ' Note: this is an Author URL — caching normally applies to publish/dispatcher.';
+    if (pageTier === 'author') verdict += ' Note: Author URL inspected — CDN headers apply primarily on Publish/Preview/Dispatcher.';
 
-    body.replaceChildren(el('div', 'asp-cc-hint', `HTTP ${res.status} · ${verdict}`));
+    body.replaceChildren(
+      el('div', 'asp-cc-hint', `URL: ${url}`),
+      el('div', 'asp-cc-hint', `HTTP ${res.status} · ${verdict}`),
+    );
     if (!headers.length) body.appendChild(el('div', 'asp-cc-hint', 'No cache-related headers exposed.'));
     headers.forEach(([k, v]) => {
       const row = el('div', 'asp-cc-row');
@@ -2143,19 +2268,9 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   }
 
   function positionCard(card) {
-    const bar = document.getElementById('asp-bar')?.getBoundingClientRect();
+    const bar = barBox() || document.getElementById('asp-bar')?.getBoundingClientRect();
     if (!bar) return;
-    const cw = card.offsetWidth;
-    const ch = card.offsetHeight;
-    const left = bar.left + bar.width / 2 - cw / 2;
-    card.style.left = `${Math.max(12, Math.min(left, window.innerWidth - cw - 12))}px`;
-
-    // 8px clean gap from outer toolbar (flip below if bar is placed near top of screen)
-    if (bar.top >= ch + 16 || bar.top >= window.innerHeight - bar.bottom) {
-      card.style.top = `${Math.max(8, bar.top - ch - 8)}px`;
-    } else {
-      card.style.top = `${bar.bottom + 8}px`;
-    }
+    fitFloatingBox(card, bar, { preferredMaxH: 460 });
   }
 
   // ─── Globalized URLs (hreflang / locales) ────────────────────────────────────
@@ -2260,7 +2375,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   }
 
   async function openLocalesMenu() {
-    if (document.getElementById('asp-menu')) return closeMenu();
+    if (document.getElementById('asp-menu')?._anchor?.id === 'asp-locales-btn') return closeMenu();
     const locales = collectLocaleUrls();
     const here = jcrPath ? parseMsmPath(jcrPath) : null;
     if (!here && !locales.length) return toast('No locale or live copy links found for this page', 'warn');
@@ -2345,7 +2460,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
   }
 
   async function openSyncMenu() {
-    if (document.getElementById('asp-menu')) return closeMenu();
+    if (document.getElementById('asp-menu')?._anchor?.id === 'asp-sync-btn') return closeMenu();
     if (!jcrPath) return toast('JCR path not available', 'warn');
 
     const config  = await msg('GET_CONFIG');
@@ -2461,40 +2576,70 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       available: () => b.dataset.env !== activeEnv,
       run: () => b.click(),
     }));
+    const personaCmds = !lockConfig && personaState.allowedPersonas?.length > 1
+      ? personaState.allowedPersonas.map((p) => ({
+        label: `Switch persona: ${PERSONA_DEFS[p].label}`,
+        available: () => personaState.persona !== p,
+        run: async () => {
+          const r = await msg('SET_PERSONA', { persona: p });
+          if (r.ok) toast(`✓ Switched to ${PERSONA_DEFS[p].label} persona`, 'success');
+          else toast(`✗ ${r.error}`, 'error');
+        },
+      }))
+      : [];
+    const devToolsOk = isPersonaToolEnabled(personaState, 'tools') || isPersonaToolEnabled(personaState, 'jcr');
+    const devVariant = (label, key) => ({
+      ...openVariant(label, key),
+      available: () => !!jcrPath && devToolsOk,
+    });
     const locked = !!statusData?.lockOwner;
     return [
       openVariant(`${TIER_NAMES.edit} page`, 'authorEditUrl'),
+      openVariant('Open in Universal Editor', 'universalEditorUrl'),
       openVariant(`${TIER_NAMES.view} page (no editing UI)`, 'authorDisabledUrl'),
       openVariant(`Open ${TIER_NAMES.preview}`, 'previewUrl'),
       openVariant(`Open ${TIER_NAMES.published}`, 'publishUrl'),
       openVariant(`Open ${TIER_NAMES.live}`, 'dispatcherUrl'),
       openVariant('Page properties', 'propertiesUrl'),
-      btn('asp-publish-btn', 'Publish page'),
-      btn('asp-unpublish-btn', 'Unpublish page'),
-      btn('asp-publish-preview-btn', 'Publish to Preview tier'),
-      btn('asp-jcr-btn', 'JCR inspector'),
-      btn('asp-overlay-btn', 'Toggle editor overlays'),
-      btn('asp-highlight-btn', 'Highlight components'),
-      btn('asp-inspect-btn', 'Component inspector'),
-      btn('asp-reload-btn', 'Hard reload (bypass cache)'),
-      btn('asp-copy-btn', 'Copy JCR path'),
       openVariant('Open in Sites console', 'sitesConsoleUrl'),
-      openVariant('Open in CRXDE Lite', 'crxdeUrl'),
-      openVariant('Sling Model JSON', 'modelJsonUrl'),
-      openVariant('JCR content JSON', 'jcrJsonUrl'),
-      openVariant('Debug client libraries', 'debugClientLibsUrl'),
+      { label: 'Tier switcher', keywords: 'author preview publish live edit', available: () => !!jcrPath, run: openTierMenu },
+      { label: 'Locales & MSM live copies', keywords: 'hreflang language master', available: () => !!jcrPath, run: openLocalesMenu },
+      { label: 'Publish page', available: () => personaState.showReplication && allowed('publish'), run: clickPool('asp-publish-btn') },
+      { label: 'Unpublish page', available: () => personaState.showReplication && allowed('unpublish'), run: clickPool('asp-unpublish-btn') },
+      { label: 'Publish to Preview tier', available: () => personaState.showReplication && !!envsConfig[activeEnv]?.previewHost && allowed('publishPreview'), run: clickPool('asp-publish-preview-btn') },
+      { label: 'Sync content between environments', keywords: 'copy diff merge', available: () => isPersonaToolEnabled(personaState, 'sync') && allowed('sync'), run: openSyncMenu },
+      { label: 'JCR inspector', keywords: 'properties node tree', available: () => isPersonaToolEnabled(personaState, 'jcr'), run: clickPool('asp-jcr-btn') },
+      { label: 'Toggle editor overlays', available: () => isPersonaToolEnabled(personaState, 'overlays'), run: clickPool('asp-overlay-btn') },
+      { label: 'Highlight components', available: () => isPersonaToolEnabled(personaState, 'highlight'), run: clickPool('asp-highlight-btn') },
+      { label: 'Component inspector', available: () => isPersonaToolEnabled(personaState, 'inspect'), run: clickPool('asp-inspect-btn') },
+      { label: 'Asset inspector (hover an asset)', keywords: 'dam metadata', available: () => true, run: clickPool('asp-dam-btn') },
+      { label: 'Hard reload (bypass cache)', available: () => isPersonaToolEnabled(personaState, 'reload'), run: clickPool('asp-reload-btn') },
+      { label: 'Copy JCR path', available: () => !!jcrPath, run: clickPool('asp-copy-btn') },
+      { label: 'Copy page URL', available: () => true, run: async () => { await copyToClipboard(window.location.href.split('#')[0]); toast('✓ URL copied', 'success'); } },
+      { label: 'Page details & status', keywords: 'info last modified lock', available: () => true, run: toggleStatusPanel },
+      devVariant('Open in CRXDE Lite', 'crxdeUrl'),
+      { label: 'Open CRX Package Manager', available: () => !!jcrPath && devToolsOk, run: async () => {
+        const v = await msg('GET_URL_VARIANTS', { jcrPath });
+        const u = v.crxdeUrl ? v.crxdeUrl.replace(/\/crx\/de\/.*/, '/crx/packmgr/index.jsp') : '';
+        if (u) window.open(u, '_blank', 'noopener');
+      } },
+      devVariant('Sling Model JSON', 'modelJsonUrl'),
+      devVariant('JCR content JSON', 'jcrJsonUrl'),
+      devVariant('Debug client libraries', 'debugClientLibsUrl'),
       { label: locked ? 'Unlock page' : 'Lock page', available: () => !!jcrPath && allowed('lock'), run: toggleLock },
       { label: 'Save a version of this page', available: () => !!jcrPath && allowed('saveVersion'), run: saveVersion },
-      { label: 'SEO & accessibility check', available: () => true, run: runAudit },
-      { label: 'Cache & dispatcher headers', available: () => true, run: showCacheHeaders },
+      { label: 'SEO & accessibility audit', keywords: 'check a11y headings images wcag', available: () => personaState.persona === 'custom' || isPersonaToolEnabled(personaState, 'audit'), run: runAudit },
+      { label: 'Cache & dispatcher headers', keywords: 'cdn age x-cache via', available: () => personaState.persona === 'custom' || isPersonaToolEnabled(personaState, 'cache'), run: showCacheHeaders },
       ...envs,
+      ...personaCmds,
       btn('asp-options-btn', 'Open options'),
-      btn('asp-delete-btn', 'Delete page…'),
+      { label: 'Delete page…', available: () => isPersonaToolEnabled(personaState, 'delete') && allowed('delete'), run: clickPool('asp-delete-btn') },
     ].filter((c) => c.available());
   }
 
   function closePalette() { document.getElementById('asp-palette')?.remove(); }
 
+  /** Opens the floating Command Palette (`Cmd/Ctrl+K`) with fuzzy keyword filtering. */
   function openPalette() {
     closePalette();
     closeMenu();
@@ -2516,7 +2661,19 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const render = () => {
       const q = input.value.trim().toLowerCase();
       const terms = q.split(/\s+/).filter(Boolean);
-      shown = commands.filter((c) => terms.every((t) => c.label.toLowerCase().includes(t)));
+      const rank = (c) => {
+        if (!q) return 0;
+        const lbl = c.label.toLowerCase();
+        if (lbl.startsWith(q)) return 0;
+        if (terms.every((t) => lbl.includes(t))) return 1;
+        return 2;
+      };
+      shown = commands
+        .filter((c) => {
+          const hay = `${c.label} ${c.keywords || ''}`.toLowerCase();
+          return terms.every((t) => hay.includes(t));
+        })
+        .sort((a, b) => rank(a) - rank(b));
       sel = Math.min(sel, Math.max(0, shown.length - 1));
       listEl.replaceChildren(...(shown.length ? shown.map((c, i) => {
         const item = el('button', `asp-menu-item${i === sel ? ' asp-palette-sel' : ''}`, c.label);
@@ -2540,10 +2697,17 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     input.focus();
   }
 
-  // Popup → content script (popup "Toggle Overlays" reuses the same logic).
-  chrome.runtime.onMessage.addListener((m, sender, sendResponse) => {
-    if (sender.id !== chrome.runtime.id) return false;
-    if (m?.action === 'TOGGLE_OVERLAYS') sendResponse({ ok: true, ...toggleOverlays() });
+  // Popup → content script (Toggle Overlays, Audit facts, QA Audit, Cache headers).
+  getExtApi()?.runtime?.onMessage?.addListener((m, sender, sendResponse) => {
+    const myId = getExtApi()?.runtime?.id;
+    if (myId && sender?.id !== myId) return false;
+    if (m?.action === 'TOGGLE_OVERLAYS') { sendResponse({ ok: true, ...toggleOverlays() }); return false; }
+    if (m?.action === 'COLLECT_AUDIT_FACTS') {
+      collectAuditFacts().then((facts) => sendResponse({ ok: true, facts })).catch((e) => sendResponse({ ok: false, error: e?.message || 'Failed' }));
+      return true;
+    }
+    if (m?.action === 'RUN_AUDIT') { runAudit(); sendResponse({ ok: true }); return false; }
+    if (m?.action === 'SHOW_CACHE_HEADERS') { showCacheHeaders(); sendResponse({ ok: true }); return false; }
     return false;
   });
 
@@ -2659,12 +2823,13 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       });
       return r;
     };
-    const copy = (val) => async () => { await navigator.clipboard.writeText(val); toast('✓ Copied', 'success'); };
+    const copy = (val) => async () => { await copyToClipboard(val); toast('✓ Copied', 'success'); };
     const open = (url) => () => window.open(url, '_blank', 'noopener');
 
     const header = document.createElement('div');
     header.className = 'asp-inspector-header';
     const title = document.createElement('span');
+    title.className = 'asp-inspector-header-left';
     title.textContent = 'Component';
     const close = document.createElement('button');
     close.className = 'asp-icon-btn';
@@ -2673,22 +2838,39 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     header.append(title, close);
     card.appendChild(header);
 
-    card.appendChild(row(comp.cmpName ? 'Component' : 'Resource type', comp.type,
+    const body = document.createElement('div');
+    body.className = 'asp-inspector-table-wrap asp-float-body';
+    card.appendChild(body);
+
+    body.appendChild(row(comp.cmpName ? 'Component' : 'Resource type', comp.type,
       [
         ...(comp.type ? [{ text: 'Copy', fn: copy(comp.type) }] : []),
         ...(urls.crxdeTypeUrl && !comp.cmpName ? [{ text: 'CRXDE', fn: open(urls.crxdeTypeUrl) }] : []),
       ]));
-    card.appendChild(row('Resource path', comp.path,
-      comp.path ? [{ text: 'Copy', fn: copy(comp.path) }, ...(urls.crxdeNodeUrl ? [{ text: 'CRXDE', fn: open(urls.crxdeNodeUrl) }] : [])] : []));
+    body.appendChild(row('Resource path', comp.path,
+      comp.path ? [
+        { text: 'Copy', fn: copy(comp.path) },
+        ...(urls.crxdeNodeUrl ? [{ text: 'CRXDE', fn: open(urls.crxdeNodeUrl) }] : []),
+      ] : []));
+    if (comp.path) {
+      const origin = window.location.origin;
+      const modelUrl = `${origin}${comp.path}.model.json`;
+      const jcrJsonUrl = `${origin}${comp.path}.infinity.json`;
+      body.appendChild(row('JSON endpoints', '.model.json / .infinity.json', [
+        { text: 'Model', fn: open(modelUrl) },
+        { text: 'Infinity', fn: open(jcrJsonUrl) },
+        { text: 'Copy .model', fn: copy(modelUrl) },
+      ]));
+    }
     if (pol?.ok) {
       if (pol.template) {
-        card.appendChild(row('Template', pol.template, [{ text: 'Copy', fn: copy(pol.template) }]));
+        body.appendChild(row('Template', pol.template, [{ text: 'Copy', fn: copy(pol.template) }]));
       }
       if (pol.policyTitle || pol.policyPath) {
-        card.appendChild(row('Policy', pol.policyTitle || pol.policyPath, pol.policyPath ? [{ text: 'Copy', fn: copy(pol.policyPath) }] : []));
+        body.appendChild(row('Policy', pol.policyTitle || pol.policyPath, pol.policyPath ? [{ text: 'Copy', fn: copy(pol.policyPath) }] : []));
       }
       if (pol.allowedComponents?.length) {
-        card.appendChild(row('Allowed components', `${pol.allowedComponents.length} component(s)`));
+        body.appendChild(row('Allowed components', `${pol.allowedComponents.length} component(s)`));
       }
     }
 
@@ -2696,7 +2878,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       const hint = document.createElement('div');
       hint.className = 'asp-cc-hint';
       hint.textContent = 'Resource path is only available in the page editor or with ?wcmmode=edit — AEM omits it on published and wcmmode=disabled pages.';
-      card.appendChild(hint);
+      body.appendChild(hint);
     }
 
     document.body.appendChild(card);
@@ -2831,6 +3013,10 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
           toast(`${displayLabel} has no host for this tier — targeting actions only`, 'warn', 3500);
         }
 
+        loginPrompted = false;
+        _recentRecorded = false;
+        closeInspector();
+        ['asp-status-panel', 'asp-component-card', 'asp-asset-card'].forEach((id) => document.getElementById(id)?.remove());
         setActiveEnvUI(env); // tab-local only
         applyControlPolicy();
         updateStatus('unknown', null);
@@ -2921,21 +3107,24 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     // Copy path
     document.getElementById('asp-copy-btn')?.addEventListener('click', async () => {
       if (!jcrPath) return toast('No path available', 'warn');
-      await navigator.clipboard.writeText(jcrPath);
+      await copyToClipboard(jcrPath);
       toast('✓ JCR path copied', 'success');
-    });
-    const copyPath = async () => {
-      if (!jcrPath) return;
-      await navigator.clipboard.writeText(jcrPath);
-      toast('✓ Copied', 'success');
-    };
-    document.getElementById('asp-jcr-path')?.addEventListener('click', copyPath);
-    document.getElementById('asp-jcr-path')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyPath(); }
     });
 
     document.getElementById('asp-publish-btn')?.addEventListener('click', replicate('publish'));
     document.getElementById('asp-unpublish-btn')?.addEventListener('click', replicate('unpublish'));
+
+    // QA audit & Cache header buttons
+    document.getElementById('asp-audit-btn')?.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); runAudit(); });
+    document.getElementById('asp-cache-btn')?.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); showCacheHeaders(); });
+
+    // JCR Expand / Collapse All
+    document.getElementById('asp-inspector-expand')?.addEventListener('click', () => {
+      document.querySelectorAll('#asp-inspector-body details').forEach((d) => { d.open = true; });
+    });
+    document.getElementById('asp-inspector-collapse')?.addEventListener('click', () => {
+      document.querySelectorAll('#asp-inspector-body > details details').forEach((d) => { d.open = false; });
+    });
 
     // JCR Inspector toggle
     document.getElementById('asp-jcr-btn')?.addEventListener('click', async () => {
@@ -2971,7 +3160,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     // Inspector copy button
     document.getElementById('asp-inspector-copy')?.addEventListener('click', async () => {
       if (!_jcrData) return;
-      await navigator.clipboard.writeText(JSON.stringify(_jcrData, null, 2));
+      await copyToClipboard(JSON.stringify(_jcrData, null, 2));
       toast('✓ JCR properties copied', 'success');
     });
 
@@ -3021,6 +3210,45 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
       && !e.target.closest('#asp-sync-btn')) closeMenu();
   }
 
+  let _onSyncChanged = null;
+
+  /** Applies config / persona / layout flags onto the active toolbar live. */
+  function applyConfigToToolbar(fullConfig) {
+    featureFlags = {
+      enableKeyboardShortcut: fullConfig.enableKeyboardShortcut !== false,
+      showLastModified:       fullConfig.showLastModified       !== false,
+      summonOnLongPress:      fullConfig.summonOnLongPress      === true,
+    };
+    fullConfigFlags = { confirmDelete: fullConfig.confirmDelete !== false, confirmPublish: fullConfig.confirmPublish === true };
+    envsConfig      = fullConfig.environments || {};
+    controlPolicy   = fullConfig.controlPolicy || null;
+    lockConfig      = !!fullConfig.lockConfiguration;
+    personaState    = resolvePersonaState(fullConfig);
+    devMode = {
+      enabled: personaState.effectiveDevMode,
+      buttons: { ...personaState.devToolsButtons },
+    };
+    toolbarLayout = personaState.persona === 'custom'
+      ? (fullConfig.customizeToolbar === true ? normalizeLayout(fullConfig.toolbarLayout) : defaultLayout())
+      : normalizeLayout(personaState.effectiveLayout);
+    orbMode = fullConfig.classicBar !== true;
+
+    const hint = document.getElementById('asp-palette-btn');
+    if (hint) {
+      hint.textContent = isMac ? '⌘K' : 'Ctrl K';
+      hint.style.display = featureFlags.enableKeyboardShortcut ? '' : 'none';
+    }
+
+    themeSync?.stop();
+    themeSync = syncTheme(fullConfig.optionsTheme);
+    if (document.getElementById('asp-bar')) {
+      applyMinimized();
+      applyControlPolicy();
+      updateTierLabel();
+      bindSummonAll();
+    }
+  }
+
   /** Remove the toolbar and everything it added to the page. */
   function teardown() {
     document.removeEventListener('keydown', handleKeydown);
@@ -3032,6 +3260,10 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     busyCount = 0;
     themeSync?.stop();
     themeSync = null;
+    if (_onSyncChanged) {
+      try { getExtApi()?.storage?.onChanged?.removeListener(_onSyncChanged); } catch { /* ignore */ }
+      _onSyncChanged = null;
+    }
     document.documentElement.removeAttribute('data-asp-theme');
     document.removeEventListener('click', onDocumentClick, true);
     stopInspecting();
@@ -3070,27 +3302,7 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     const fullConfig = await msg('GET_CONFIG');
     const envs       = fullConfig.environments || {};
 
-    // Load feature flags from the same config response
-    featureFlags = {
-      enableKeyboardShortcut: fullConfig.enableKeyboardShortcut !== false,
-      showLastModified:       fullConfig.showLastModified       !== false,
-      summonOnLongPress:      fullConfig.summonOnLongPress      === true,
-    };
-    fullConfigFlags = { confirmDelete: fullConfig.confirmDelete !== false, confirmPublish: fullConfig.confirmPublish === true };
-    envsConfig      = fullConfig.environments || {};
-
-    // Developer mode — controls visibility of developer-only toolbar buttons
-    controlPolicy = fullConfig.controlPolicy || null;
-    devMode = {
-      enabled: fullConfig.enableDevMode === true,
-      buttons: { jcr: true, overlays: true, highlight: true, inspect: true, tools: true, reload: true, delete: true, sync: true, ...(fullConfig.devToolsButtons || {}) },
-    };
-    // Which buttons sit on the bar: the saved layout only while customising is on, otherwise the built-in one
-    toolbarLayout = fullConfig.customizeToolbar === true ? normalizeLayout(fullConfig.toolbarLayout) : defaultLayout();
-    orbMode = fullConfig.classicBar !== true;
-    // Light / dark / auto (follow the browser theme), from the Settings theme button
-    themeSync?.stop();
-    themeSync = syncTheme(fullConfig.optionsTheme);
+    applyConfigToToolbar(fullConfig);
 
     // Bail early if nothing is configured
     const anyConfigured = Object.values(envs).some(
@@ -3128,11 +3340,23 @@ import { spiralPath, logoSpiralPaths } from '../shared/spiral.js';
     applyControlPolicy();
     updateTierLabel();
 
+    // Watch Settings / Persona changes live across tabs
+    const api = getExtApi();
+    if (!_onSyncChanged && api?.storage?.onChanged) {
+      _onSyncChanged = async (changes, area) => {
+        if (area !== 'sync') return;
+        const keys = ['persona', 'enableDevMode', 'devToolsButtons', 'qaToolsButtons', 'customizeToolbar', 'toolbarLayout', 'classicBar', 'enableKeyboardShortcut', 'showLastModified', 'summonOnLongPress'];
+        if (keys.some((k) => k in changes)) {
+          const fresh = await msg('GET_CONFIG');
+          if (fresh && fresh.environments) applyConfigToToolbar(fresh);
+        }
+      };
+      try { api.storage.onChanged.addListener(_onSyncChanged); } catch { /* ignore */ }
+    }
+
     // Set JCR path and fetch status
     if (parsed.ok && parsed.jcrPath) {
       jcrPath = parsed.jcrPath;
-      const pathEl = document.getElementById('asp-jcr-path');
-      if (pathEl) pathEl.textContent = jcrPath;
     }
     await refreshStatus();
   }

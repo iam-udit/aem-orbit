@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Headless SEO & Accessibility Audit Evaluator.
  * @module shared/page-audit
@@ -31,11 +32,16 @@ const list = (arr) => (arr || []).slice(0, DETAILS_MAX).map(String);
  * @property {number}   inputsNoLabel
  * @property {Array<{href:string,status:number}>} brokenLinks
  * @property {number}   linksChecked
+ * @property {string[]} [duplicateIds]     Duplicate DOM element IDs found on the page
+ * @property {string[]} [imgsBroken]       Image URLs that finished loading with naturalWidth === 0
+ * @property {number}   [imgsNoDimensions] Count of content images missing explicit width/height attributes
  */
 
 /**
+ * Evaluates SEO, accessibility, media, and internal link health from collected page facts.
+ *
  * @param {AuditFacts} f
- * @returns {{score:number, checks:Array<{group:string, status:'pass'|'warn'|'fail'|'info', message:string, details?:string[]}>}}
+ * @returns {{score:number, checks:Array<{group:string, status:'pass'|'warn'|'fail'|'info', message:string, details?:string[]}>, summary:{fails:number,warns:number,passes:number}}}
  */
 export function evaluateAudit(f = {}) {
   const checks = [];
@@ -93,6 +99,15 @@ export function evaluateAudit(f = {}) {
   if (f.linksNoText > 0)   add('Accessibility', 'warn', `${f.linksNoText} link(s) without accessible text`);
   if (f.buttonsNoName > 0) add('Accessibility', 'fail', `${f.buttonsNoName} button(s) without accessible name`);
   if (f.inputsNoLabel > 0) add('Accessibility', 'fail', `${f.inputsNoLabel} form field(s) without label`);
+  if (Array.isArray(f.duplicateIds) && f.duplicateIds.length > 0) {
+    add('Accessibility', 'warn', `${f.duplicateIds.length} duplicate id attribute(s)`, list(f.duplicateIds));
+  }
+  if (Array.isArray(f.imgsBroken) && f.imgsBroken.length > 0) {
+    add('Accessibility', 'fail', `${f.imgsBroken.length} broken image(s) (naturalWidth = 0)`, list(f.imgsBroken));
+  }
+  if (typeof f.imgsNoDimensions === 'number' && f.imgsNoDimensions > 0) {
+    add('SEO', 'warn', `${f.imgsNoDimensions} image(s) missing width/height attributes (CLS risk)`);
+  }
 
   // ── Links ──
   const broken = f.brokenLinks || [];
@@ -102,5 +117,6 @@ export function evaluateAudit(f = {}) {
 
   const fails = checks.filter((c) => c.status === 'fail').length;
   const warns = checks.filter((c) => c.status === 'warn').length;
-  return { score: Math.max(0, 100 - fails * 10 - warns * 4), checks };
+  const passes = checks.filter((c) => c.status === 'pass').length;
+  return { score: Math.max(0, 100 - fails * 10 - warns * 4), checks, summary: { fails, warns, passes } };
 }

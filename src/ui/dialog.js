@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Accessible Modal Dialogs for AEM Orbit.
  * @module ui/dialog
@@ -100,7 +101,7 @@ function openDialog(o) {
     const finish = (accepted) => {
       closeCurrent = null;
       overlay.remove();
-      if (opener && typeof opener.focus === 'function') opener.focus();
+      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
       resolve({ ok: accepted, value: input ? input.value.trim() : '' });
     };
     closeCurrent = () => finish(false);

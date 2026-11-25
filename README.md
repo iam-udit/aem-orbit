@@ -1,8 +1,8 @@
-# AEM Orbit — Chrome Extension
+# AEM Orbit — Cross-Browser Extension
 
-A Chrome extension for AEM Cloud and AEM 6.5, built for both developers and authors and inspired by Adobe's AEM Sidekick. It adds a floating toolbar to AEM Author, Preview, Publish and Dispatcher pages, plus a popup "Workspace" for work that spans several pages.
+A cross-browser WebExtension (Chrome, Edge, Brave, Arc, Opera, Vivaldi, Firefox MV3, and Safari) for AEM Cloud and AEM 6.5, inspired by Adobe's AEM Sidekick and tailored with **Workspace Personas (`Author`, `QA`, `Developer`, `Custom`)**. It adds a floating toolbar to AEM Author, Preview, Publish and Dispatcher pages, plus a popup "Workspace" for work that spans several pages.
 
-> **Disclaimer:** AEM Orbit is an independent, community project. It is not affiliated with, endorsed by, or sponsored by Adobe Inc. "Adobe", "Adobe Experience Manager" and "AEM" are trademarks of Adobe Inc., used here only to describe compatibility.
+> **Disclaimer & License:** AEM Orbit is an independent, open-source community project licensed under the [Apache License 2.0](LICENSE) (see [NOTICE](NOTICE) for attribution and trademark terms). It is not affiliated with, endorsed by, or sponsored by Adobe Inc. "Adobe", "Adobe Experience Manager", "AEM", and "AEM Sidekick" are trademarks of Adobe Inc., used here only to describe compatibility. Tutorial demonstrations feature Adobe's open-source [AEM Guides WKND](https://github.com/adobe/aem-guides-wknd) sample site (Apache 2.0).
 
 ---
 
@@ -14,21 +14,21 @@ Watch AEM Orbit being used, chapter by chapter, recorded live in a real browser 
 
 | # | Chapter | What it covers |
 |---|---|---|
-| 0 | Introduction & Architecture | What AEM Orbit is, multi-tier control surface, client-side zero-trust security |
-| 1 | The Orb and the fan | Animated Orb, 7-leaf radial fan, environment switch, live JCR property search |
-| 1b | Positioning the Orb | Drag to all edges, position persistence across reloads, long-press summon, Mini-Bar |
-| 2 | Toolbar and navigation | Tier switcher (Edit, View, Preview, Publish, CDN), cross-env switching, MSM locales, undo toasts |
-| 3 | Authoring and replication | Quick publish, pre-flight checks, preview tier, page lock, tree and bulk publish, Prod Guard |
-| 4 | Developer tools | JCR tree, Stage vs Dev diff, component and DAM cards, CFM headless JSON, cache headers, hard reload |
-| 5 | Content synchronization | Downstream content sync (Push/Pull), pre-sync property diff, automatic version backup, instant rollback |
-| 6 | SEO and accessibility audit | In-page audits (score ring), benchmark healthy (92/100) vs unoptimized (32/100) pages, broken 404 links |
-| 7 | Popup Workspace Console | Quick action hub: cross-env SHA-256 compare, recents, starred pages, audit log CSV, find & replace |
-| 8 | Edge Delivery & Universal Editor | EDS live vs preview (.aem.page / .aem.live) switching, Universal Editor 1-click launch, Cloud Manager links |
-| 9 | Enterprise governance & policy | Multi-brand site profiles, Chrome Managed Policy simulation (`lockConfiguration`, `enforceSessionAuthOnly`) |
-| 10 | Settings & Options Console | 13-area configuration matrix, environment diagnostics with latency ping, custom button layout editor |
-| 11 | Keyboard Shortcuts & Palette | Cmd+K Command Palette, Option+Shift+K toolbar toggle, arrow key navigation, universal Escape dismissal |
+| 0 | Introduction & Personas Architecture | Cross-browser WebExtension (Chromium, Firefox, Safari), Author/QA/Dev/Custom personas, zero-trust security |
+| 1 | The Orb & Persona Fan | Animated Orb, radial fan adapting to QA/Dev/Author personas, env switch, Expand/Collapse JCR tree |
+| 1b | Positioning the Orb | Drag to all edges, position persistence across reloads, long-press summon, Classic Mini-Bar |
+| 2 | Toolbar & Personas | Live More-menu persona switching, Tier switcher, cross-env Shift/Cmd clicks, scrollable 20-locale MSM list, toasts |
+| 3 | Authoring & Replication | Quick publish, pre-flight checks, preview tier, page lock via Cmd+K, tree and bulk publish, Prod Guard |
+| 4 | Developer Tools & Inspectors | Expandable JCR tree & path copy, Stage vs Dev diff, component & DAM cards, CFM headless JSON, cache headers, hard reload |
+| 5 | Content Synchronization | Downstream content sync (Push/Pull), pre-sync property diff, automatic version backup, instant rollback |
+| 6 | SEO & Accessibility Audits | QA/Dev audit button, benchmark 92/100 vs 32/100, duplicate DOM IDs, image dimensions/404s, Copy & Export JSON |
+| 7 | Popup Workspace & QA Readiness | Header Persona/Env switchers, QA Release Readiness checklist, SHA-256 Diff Back/Copy, History CSV, Find & Replace |
+| 8 | Edge Delivery & Universal Editor | Deduplicated Copy URLs, bidirectional EDS (`.aem.page` / `.aem.live`) switching with query preservation, Universal Editor |
+| 9 | Enterprise Governance & Policy | Multi-Brand Profiles CRUD, persona policies (`allowedPersonas`, `controlPolicy`), SAML session lock, read-only lockdown |
+| 10 | Settings & Options Console | Dynamic Author/QA/Dev/Custom persona cards, Clone to Custom, 5-tier diagnostics ping, live style switch, Toolbar Editor |
+| 11 | Keyboard Shortcuts & Palette | `Cmd+K` keyword-indexed Command Palette, `Option+Shift+K` toggle, arrow execution, A-Z jumps, `Esc` dismissal |
 
-Also available as a single continuous 45-minute walkthrough with embedded chapter markers and a 3-minute executive highlights cut. Maintainers: see [`docs/tutorial/README.md`](docs/tutorial/README.md).
+Also available as a single continuous 30-minute walkthrough (`v4`) with embedded chapter markers, a 3.2-minute executive highlights cut, and a 55-second overview teaser. Maintainers: see [`docs/tutorial/README.md`](docs/tutorial/README.md).
 
 ---
 
@@ -147,18 +147,32 @@ To enforce central organizational compliance and prevent accidental credential l
 
 ## Installation
 
+### 🎭 Workspace Personas (`Author`, `QA`, `Developer`, `Custom`)
+Choose the active workspace persona in **Settings → Workspace Persona**, the **More** menu, the **Command Palette** (`⌘K` / `Ctrl+K`), or the **Popup Header**:
+
+| Persona | Designed For | Behavior Across Settings, Toolbar, Orb & Popup |
+|---|---|---|
+| **Author** | Content Authors & Editors | Streamlined authoring, preview, locales, and safe publishing with Developer & QA clutter hidden. |
+| **QA** | QA & Verification Engineers | Dedicated *QA Verification* panel (*SEO & Accessibility Audit*, *CDN Cache Headers*, *QA Readiness* matrix across envs), Component/DAM inspection, read-only JCR/view focus (hides publishing & JCR mutations). |
+| **Developer** | AEM Developers & Architects | Unlocks JCR Inspector (Expand/Collapse All + copy path), CRXDE Lite, overlays, Sync Content, Dispatcher flush, and QA tools. |
+| **Custom** | Power Users / Legacy Default | Preserves today's exact default toggles/popup/toolbar behavior and lets you customize every Developer/QA switch and toolbar button freely (or clone any preset via *Customize in Custom mode*). |
+
+> Long menus and result panels (Locales & MSM live copies, Environment Picker, JCR Inspector, SEO Audit, Cache Headers, Component/DAM Cards, and Popup search/panels) automatically stay bounded inside the viewport height — centering when needed and providing clean internal scrollbars.
+
 ### From source (developer mode)
 
 1. Clone or download this repo. Use Node 22 LTS (`nvm use` reads `.nvmrc`).
 2. Install and build:
    ```bash
    npm install
-   npm run build        # → dist/extension/
+   npm run build          # Chromium (Chrome, Edge, Brave, Arc) → dist/extension/
+   npm run build:firefox  # Firefox MV3 (115+) → dist/firefox/
+   npm run build:all      # Both targets
    ```
-3. Open Chrome and go to `chrome://extensions` (Chrome 116 or later).
-4. Turn on **Developer mode** (top-right toggle).
-5. Click **Load unpacked** and select **`dist/extension/`**. The repo root no longer loads directly, because the sources are ES modules that esbuild bundles.
-6. Click the extension icon, then **Open Options** to configure your environments. Grant host access when Chrome prompts you.
+3. **Chromium**: Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, click **Load unpacked**, and select **`dist/extension/`**.
+4. **Firefox**: Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…**, and choose **`dist/firefox/manifest.json`**.
+5. **Safari (macOS/iOS)**: Convert **`dist/extension/`** using `xcrun safari-web-extension-converter dist/extension`.
+6. Click the extension icon, then **Open Options** to configure your environments (or run Multi-Site Brand Profile CRUD setup). Grant host access when prompted.
 
 ---
 
@@ -203,9 +217,12 @@ aem-orbit/
 │   ├── background/
 │   │   └── service-worker.js       # Message router, env resolution, confirmations, content-script registration
 │   ├── shared/
+│   │   ├── browser-compat.js       # Cross-browser API abstraction (Chrome / Firefox MV3 / Safari)
+│   │   ├── persona.js              # 4-persona model (author, qa, dev, custom) & policy resolution
 │   │   ├── aem-api.js              # AEM REST helpers (timeouts, CSRF, login detection)
-│   │   ├── url-utils.js            # Pure URL / path / mapping helpers
-│   │   ├── page-audit.js           # SEO & a11y scoring
+│   │   ├── url-utils.js            # Pure URL / path / mapping / MSM helpers
+│   │   ├── page-audit.js           # SEO, heading, broken image/link & a11y scoring
+│   │   ├── orb-layout.js           # Floating orb radial geometry & persona leaves
 │   │   ├── sync-direction.js       # Which way content may be synced (higher → lower unless allowed)
 │   │   └── toolbar-layout.js       # Toolbar button registry, default layout, layout validation
 │   ├── ui/
@@ -213,12 +230,15 @@ aem-orbit/
 │   │   ├── dialog.js               # Themed, centred confirm / prompt dialogs
 │   │   └── dialog.css              # Dialog styles (dark by default, light via data-asp-theme)
 │   ├── content/
-│   │   ├── content-script.js       # Floating toolbar (dynamically registered per configured host)
-│   │   └── toolbar.css             # Namespaced (asp-) styles
-│   ├── popup/                      # Extension popup + Workspace
-│   └── options/                    # Configuration page
-├── scripts/build.mjs               # esbuild → dist/extension/
-├── test/                           # node:test suites (url-utils, aem-api, page-audit, page-actions, toolbar-layout)
+│   │   ├── content-script.js       # Floating toolbar, viewport-bounded menus/panels (dynamically registered)
+│   │   └── toolbar.css             # Namespaced (asp-) styles + thin scrollable containers
+│   ├── popup/                      # Extension popup + Workspace (Persona switcher, QA Readiness, Env Compare)
+│   └── options/                    # Configuration page (Persona cards, Brand Profiles CRUD, Diagnostics)
+├── scripts/
+│   ├── build.mjs                   # esbuild → dist/extension/ and --firefox → dist/firefox/
+│   ├── e2e-chrome-devtools.mjs     # Extensible Chrome DevTools E2E test entrypoint
+│   └── e2e/                        # Modular CDP harness & live WKND suites (suites/01..05)
+├── test/                           # node:test suites (287 unit & integration checks)
 ├── icons/                          # Generated PNG icons (the spiral on a red / grey tile)
 ├── generate-icons.js               # Zero-dependency icon generator (npm run icons)
 ├── eslint.config.mjs               # ESLint flat config
@@ -355,11 +375,14 @@ Requires **Node.js 22 LTS** (`>=22.13.0`). Run `nvm use` to pick it up from `.nv
 
 ```bash
 npm install        # dev tooling (esbuild, ESLint)
-npm run build      # bundle → dist/extension/ (load this unpacked)
+npm run build      # bundle → dist/extension/ (Chromium MV3)
+npm run build:firefox  # bundle → dist/firefox/ (Firefox MV3)
+npm run build:all  # build Chromium + Firefox bundles
 npm run watch      # rebuild JS on change, with source maps (rerun build for HTML/CSS/manifest)
 npm run lint       # ESLint
-npm test           # node:test suites
+npm test           # node:test suites (287 unit & integration tests)
 npm run check      # lint + test
+npm run test:e2e   # extensible Chrome DevTools E2E QA suite against live WKND AEM instances
 npm run zip        # build → dist/aem-orbit-<version>.zip
 npm run release    # check + zip (the Release workflow does this when you push a v<version> tag)
 npm run icons      # regenerate icons

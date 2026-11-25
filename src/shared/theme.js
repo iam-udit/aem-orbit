@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Theme choice shared by the Settings page and the toolbar.
  * @module shared/theme

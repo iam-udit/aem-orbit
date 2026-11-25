@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Property-level diff of two JCR content trees.
  * @module shared/content-diff

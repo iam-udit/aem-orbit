@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file The AEM-style spiral of the logo and the orb: two interlaced closed strands with 8 lobes.
  * @module shared/spiral

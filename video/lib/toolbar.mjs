@@ -24,13 +24,19 @@ export async function openMenu(rec, selector) {
 }
 
 export async function menuItemRect(rec, text) {
-  return rec.tab.eval(`(() => { const it = [...document.querySelectorAll('#asp-menu .asp-menu-item')]
-    .find((b) => {
+  return rec.tab.eval(`(() => {
+    const items = [...document.querySelectorAll('#asp-menu .asp-menu-item')]
+    const q = ${JSON.stringify(text.toLowerCase())}
+    const byTitle = items.find((b) => (b.querySelector('.asp-menu-title')?.textContent || '').trim().toLowerCase().includes(q))
+    const it = byTitle || items.find((b) => {
       const s = b.textContent.trim().toLowerCase()
-      const t = ${JSON.stringify(text.toLowerCase())}
-      return s.startsWith(t) || s.includes(t)
-    }); if (!it) return null
-    const r = it.getBoundingClientRect(); return { cx: r.x + r.width / 2, cy: r.y + r.height / 2 } })()`)
+      return s.startsWith(q) || s.includes(q)
+    })
+    if (!it) return null
+    it.scrollIntoView({ block: 'center', behavior: 'instant' })
+    const r = it.getBoundingClientRect()
+    return { cx: r.x + r.width / 2, cy: r.y + r.height / 2 }
+  })()`)
 }
 
 export async function clickMenuItem(rec, text) {

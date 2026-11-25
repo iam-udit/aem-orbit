@@ -114,3 +114,16 @@ Final task (Ch 12) must find zero `[ ]` left, or tell the user which items are i
 - [x] Ch11 Esc: close the active menu, inspector or modal dialog
 - [x] Ch11 Arrow Up/Down + Enter: navigate and select within menus and the command palette
 - [x] Ch11 A-Z letter jump: pressing a letter key in a menu jumps to the matching action
+
+## 11. v4 New & Enhanced Capabilities
+- [x] Ch0/10 All-Browser WebExtension architecture: Chrome, Edge, Firefox Manifest V3, and Safari Web Extension parity (`browser-compat.js`)
+- [x] Ch1  Persona-adaptive radial Orb leaves: hovering under QA surfaces View, Live, Audit, Cache, Inspect, Environment, and Props
+- [x] Ch2  Live persona switching in More menu: switch between Author, QA, Developer, and Custom without reloading the page
+- [x] Ch2  Viewport-bounded scrollable floating menus & result windows: long Multi Site Manager / hreflang 20-locale lists, JCR panels, Audits, and Command Palette stay fitted inside the viewport with smooth scrollbars (`fitFloatingBox`)
+- [x] Ch4  Expand All / Collapse All JCR tree buttons and click-to-copy repository property path directly from inspected rows (shown in Ch1 & Ch4)
+- [x] Ch6  Extended SEO & Core Web Vitals audits: Duplicate DOM ID detection, broken image detection, missing image width/height dimensions, and Copy JSON button alongside JSON export
+- [x] Ch7  Popup Workspace Enhancements: header Persona switcher pill, clickable Environment switcher, QA Release Readiness Checklist card, Diff Back & Copy Diff JSON buttons, and per-item remove/clear controls in Recent/Favourites
+- [x] Ch8  Deduplicated Copy URLs hub and seamless `.aem.page` / `.aem.live` Edge Delivery tier switching with query preservation
+- [x] Ch9  Enterprise Persona Governance (`allowedPersonas` policy locking out Developer persona across Options/Toolbar/Popup) & interactive Multi-Site Brand Profiles CRUD
+- [x] Ch10 Dynamic Settings Console for all 4 Personas (Author, QA, Developer, Custom), dynamic section visibility & preset locks, "Customize in Custom mode" clone button, and 5-tier latency diagnostics
+- [x] Ch11 Command Palette keyword-indexed ranking (`audit`, `jcr`, `persona`) prioritising direct command label matches over keyword-only matches

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,6 +7,7 @@
   <link rel="stylesheet" href="../ui/dialog.css" />
   <style>
     :root {
+      color-scheme: dark;
       --bg: #131416;
       --surface: #1b1c20;
       --surface-hover: #24262b;
@@ -42,6 +44,7 @@
       --tint: 255, 255, 255;
     }
     :root[data-asp-theme="light"] {
+      color-scheme: light;
       --bg: #f5f6f9;
       --surface: #ffffff;
       --surface-hover: #f0f2f6;
@@ -126,6 +129,7 @@
       color: var(--fg);
       white-space: nowrap;
     }
+    .header-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; position: relative; }
     .env-badge {
       display: inline-flex;
       align-items: center;
@@ -140,7 +144,10 @@
       color: rgba(var(--tint), 0.65);
       border: 1px solid var(--card-bd);
       flex-shrink: 0;
+      cursor: pointer;
+      font-family: inherit;
     }
+    .env-badge:hover { filter: brightness(1.12); }
     .env-badge-local  { background: rgba(0, 67, 206, 0.25);  color: var(--link); border-color: rgba(69, 137, 255, 0.35); }
     .env-badge-dev    { background: rgba(0, 125, 121, 0.25); color: var(--teal); border-color: rgba(61, 219, 217, 0.35); }
     .env-badge-stage  { background: rgba(178, 134, 0, 0.25); color: var(--warn); border-color: rgba(241, 194, 27, 0.35); }
@@ -148,7 +155,67 @@
     .env-badge-custom { background: rgba(105, 41, 196, 0.25); color: var(--purple); border-color: rgba(165, 110, 255, 0.35); }
     .env-lock { flex-shrink: 0; fill: currentColor; }
 
-    .header-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .persona-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 100px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(var(--tint), 0.06);
+      color: var(--muted);
+      border: 1px solid var(--card-bd);
+      cursor: pointer;
+      font-family: inherit;
+      margin-right: 2px;
+    }
+    .persona-badge:hover { color: var(--fg); border-color: var(--card-bd-hover); background: var(--card-bg-hover); }
+    .persona-badge[data-persona="author"] { color: var(--link); border-color: rgba(69, 137, 255, 0.35); }
+    .persona-badge[data-persona="qa"]     { color: var(--teal); border-color: rgba(61, 219, 217, 0.35); }
+    .persona-badge[data-persona="dev"]    { color: var(--purple); border-color: rgba(165, 110, 255, 0.35); }
+
+    .pop-dropdown {
+      position: fixed;
+      top: 44px;
+      min-width: 170px;
+      max-width: calc(100vw - 24px);
+      max-height: min(65vh, calc(100vh - 60px));
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(var(--tint), 0.24) transparent;
+      background: var(--surface);
+      border: 1px solid var(--bd2);
+      border-radius: 8px;
+      padding: 4px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .pop-dropdown[hidden] { display: none; }
+    .pop-drop-item {
+      background: transparent;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 8px;
+      text-align: left;
+      color: var(--fg2);
+      font: inherit;
+      font-size: 11.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .pop-drop-item:hover { background: var(--surface-hover); color: var(--fg); }
+    .pop-drop-item.active { font-weight: 700; color: var(--link); background: var(--infobg); }
+
     .icon-btn {
       width: 28px; height: 28px;
       background: transparent; border: 1px solid transparent; border-radius: 6px;
@@ -302,8 +369,11 @@
     .search-results {
       display: none;
       margin: 0 12px 8px;
-      max-height: 180px;
+      max-height: min(220px, 45vh);
       overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(var(--tint), 0.22) transparent;
       border: 1px solid var(--card-bd);
       border-radius: 8px;
       background: var(--surface);
@@ -505,6 +575,64 @@
     }
     .bulk-actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 
+    /* Find & Replace panel */
+    .fr-form { display: flex; flex-direction: column; gap: 6px; }
+    .fr-input {
+      width: 100%; height: 30px; padding: 0 9px;
+      background: var(--surface); color: var(--fg);
+      border: 1px solid var(--card-bd); border-radius: 6px;
+      font-family: inherit; font-size: 11.5px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .fr-input::placeholder { color: var(--faint); }
+    .fr-input:focus {
+      outline: none; border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.25);
+    }
+    .fr-option-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 6px 9px; border-radius: 6px;
+      background: var(--surface); border: 1px solid var(--card-bd);
+      color: var(--fg2); font-size: 11.5px; cursor: pointer;
+      transition: border-color 0.15s, background 0.12s;
+    }
+    .fr-option-row:hover { border-color: var(--card-bd-hover); background: var(--surface-hover); }
+    .pop-toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+    .pop-toggle-input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; opacity: 0; cursor: pointer;
+    }
+    .pop-toggle-slider {
+      position: absolute; inset: 0; pointer-events: none;
+      background: rgba(var(--tint), 0.22); border-radius: 100px;
+      transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pop-toggle-slider::before {
+      content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; left: 3px; top: 3px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pop-toggle-input:checked + .pop-toggle-slider { background: var(--accent2); }
+    .pop-toggle-input:checked + .pop-toggle-slider::before { transform: translateX(14px); }
+    .pop-toggle-input:focus-visible + .pop-toggle-slider { outline: 2px solid var(--accent2); outline-offset: 2px; }
+    .pop-checkbox {
+      appearance: none; -webkit-appearance: none;
+      width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px;
+      border-radius: 4px; border: 1px solid var(--bd2); background: var(--surface);
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+    }
+    .pop-checkbox:hover { border-color: var(--accent2); }
+    .pop-checkbox:checked {
+      background: var(--accent2); border-color: var(--accent2);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='2.5 6.2 5 8.7 9.5 3.5'/%3E%3C/svg%3E");
+      background-size: 11px 11px; background-position: center; background-repeat: no-repeat;
+    }
+    .fr-results {
+      margin-top: 4px; max-height: 180px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: rgba(var(--tint), 0.22) transparent;
+    }
+
     /* ── Panel (JCR Inspector / Versions / Details) ───────────────── */
     .panel {
       display: none;
@@ -528,7 +656,10 @@
       color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em;
     }
     .panel-content {
-      max-height: 200px; overflow-y: auto;
+      max-height: min(260px, 48vh); overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(var(--tint), 0.22) transparent;
       padding: 8px 12px;
       font-size: 11px;
       font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -537,7 +668,7 @@
     }
     .panel-content.ws-normal {
       white-space: normal; word-break: normal;
-      font-family: inherit; color: var(--fg2); max-height: 260px;
+      font-family: inherit; color: var(--fg2); max-height: min(300px, 55vh);
     }
     .panel-content::-webkit-scrollbar { width: 4px; }
     .panel-content::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
@@ -618,9 +749,10 @@
     .setup-steps { text-align: left; margin: 0 0 16px; padding-left: 18px; font-size: 11.5px; color: var(--sub); line-height: 1.6; }
 
     /* ── Keyboard focus & reduced motion ─────────────────────────── */
-    button:focus-visible, summary:focus-visible, input:not(.search-input):focus-visible, .jcr-path:focus-visible {
+    button:focus-visible, summary:focus-visible, input:not(.search-input):not(.fr-input):not(.pop-toggle-input):focus-visible, .jcr-path:focus-visible {
       outline: 2px solid var(--accent2); outline-offset: -2px;
     }
+    .pop-checkbox:focus-visible { outline-offset: 1px; }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   </style>
 </head>
@@ -633,14 +765,15 @@
         <svg id="logoSpiral" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg>
       </div>
       <div class="title">AEM Orbit</div>
-      <span class="env-badge" id="envBadge">
+      <button class="env-badge" id="envBadge" type="button" title="Click to switch environment in this popup" aria-haspopup="menu" aria-expanded="false">
         <svg class="env-lock" id="envLock" width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none">
           <path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6z"/>
         </svg>
         <span id="envBadgeLabel">—</span>
-      </span>
+      </button>
     </div>
     <div class="header-actions">
+      <button class="persona-badge" id="personaBadge" type="button" data-persona="custom" title="Switch workspace persona" aria-haspopup="menu" aria-expanded="false">Custom</button>
       <button class="icon-btn" id="refreshBtn" title="Refresh status" aria-label="Refresh status">
         <svg width="13" height="13" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
       </button>
@@ -740,6 +873,25 @@
       </button>
     </div>
 
+    <!-- QA Verification Tools: shown for QA & Developer personas (or opt-in under Custom) -->
+    <details class="group" id="groupQa" style="display:none;">
+      <summary>QA Verification</summary>
+      <div class="action-grid">
+        <button class="action-btn" id="qaAuditBtn" title="Run SEO, metadata &amp; accessibility audit on this page">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+          SEO &amp; A11y Audit
+        </button>
+        <button class="action-btn" id="qaCacheBtn" title="Inspect CDN / Dispatcher response headers">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          Cache Headers
+        </button>
+        <button class="action-btn" id="qaReadinessBtn" title="Combined QA readiness check: Publish/Preview parity, references, queue, SEO">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          QA Readiness
+        </button>
+      </div>
+    </details>
+
     <!-- Workspace -->
     <details class="group" id="groupWorkspace" open>
       <summary>Workspace</summary>
@@ -824,6 +976,8 @@
     </div>
   </div>
 
+  <div class="pop-dropdown" id="envDropdown" role="menu" hidden></div>
+  <div class="pop-dropdown" id="personaDropdown" role="menu" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="popup.js"></script>
 </body>

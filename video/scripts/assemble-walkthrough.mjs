@@ -1,11 +1,10 @@
-// Final Walkthrough Assembly & Highlights Cut for v3
-// Concatenates all 13 v3 chapters into orbit-for-aem-walkthrough.mp4 with embedded MP4 chapter markers,
-// generates a ~3-minute executive highlights reel, promotes v3 to canonical release files,
-// updates -final symlinks, and extracts high-res tutorial posters.
-import { execSync } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+// Final Walkthrough Assembly & Highlights Cut for v4
+// Preserves all v3 files untouched; concatenates all 13 v4 chapters into orbit-for-aem-walkthrough-v4.mp4
+// and updates canonical tutorial posters, symlinks, and highlights reel.
+import { execSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -15,31 +14,29 @@ const POSTERS = path.join(TUTORIAL, 'posters')
 const VIDEOS = path.join(TUTORIAL, 'videos')
 
 const CHAPTERS = [
-  { id: '00-intro', num: '00', title: 'Introduction & Architecture' },
-  { id: '01-orb', num: '01', title: 'The Orb & HUD Radial Fan' },
+  { id: '00-intro', num: '00', title: 'Introduction & Persona Architecture' },
+  { id: '01-orb', num: '01', title: 'The Orb & Persona-Adaptive Fan' },
   { id: '01b-orb-position', num: '01b', title: 'Positioning & Summoning' },
-  { id: '02-toolbar', num: '02', title: 'Toolbar & Navigation' },
+  { id: '02-toolbar', num: '02', title: 'Toolbar, Live Personas & Scrollable Locales' },
   { id: '03-authoring', num: '03', title: 'Authoring & Replication Governance' },
-  { id: '04-devtools', num: '04', title: 'Developer Tools & JCR Tree' },
+  { id: '04-devtools', num: '04', title: 'Developer Tools & Expandable JCR Tree' },
   { id: '05-sync', num: '05', title: 'Content Synchronization' },
-  { id: '06-seo', num: '06', title: 'SEO & Accessibility Audit' },
-  { id: '07-workspace', num: '07', title: 'Popup Workspace Console' },
+  { id: '06-seo', num: '06', title: 'SEO, Accessibility & Image Audits' },
+  { id: '07-workspace', num: '07', title: 'Popup Workspace & QA Readiness' },
   { id: '08-eds', num: '08', title: 'Edge Delivery Services & Universal Editor' },
-  { id: '09-enterprise', num: '09', title: 'Enterprise Governance & Managed Policies' },
-  { id: '10-settings', num: '10', title: 'Settings & Options Console' },
+  { id: '09-enterprise', num: '09', title: 'Enterprise Brand Profiles & Persona Policy' },
+  { id: '10-settings', num: '10', title: 'Settings Console & Multi-Tier Diagnostics' },
   { id: '11-shortcuts', num: '11', title: 'Keyboard Shortcuts & Command Palette' },
 ]
 
-console.log('=== Step 1: Probing v3 chapters and computing timestamps ===')
+console.log('=== Step 1: Probing v4 chapters and computing timestamps ===')
 let currentMs = 0
 const chapterMetadata = []
 const concatList = []
 
 for (const ch of CHAPTERS) {
-  const file = path.join(OUT, `${ch.id}-v3.mp4`)
-  if (!fs.existsSync(file)) {
-    throw new Error(`Missing v3 chapter file: ${file}`)
-  }
+  const file = path.join(OUT, `${ch.id}-v4.mp4`)
+  if (!fs.existsSync(file)) throw new Error(`Missing v4 chapter file: ${file}`)
   const probe = JSON.parse(
     execSync(`ffprobe -v error -show_entries format=duration -of json "${file}"`).toString()
   )
@@ -48,137 +45,79 @@ for (const ch of CHAPTERS) {
   const startMs = currentMs
   const endMs = currentMs + durMs
   currentMs = endMs
-
-  chapterMetadata.push({
-    ...ch,
-    durSec,
-    startMs,
-    endMs,
-  })
+  chapterMetadata.push({ ...ch, durSec, startMs, endMs })
   concatList.push(`file '${file}'`)
-  console.log(`  ${ch.num} - ${ch.title.padEnd(42)}: ${(startMs / 1000).toFixed(1)}s -> ${(endMs / 1000).toFixed(1)}s (${durSec.toFixed(1)}s)`)
+  console.log(`  ${ch.num.padEnd(3)} - ${ch.title.padEnd(46)}: ${(startMs / 1000).toFixed(1)}s -> ${(endMs / 1000).toFixed(1)}s (${durSec.toFixed(1)}s)`)
 }
 
-const totalSec = currentMs / 1000
-console.log(`Total duration: ${totalSec.toFixed(1)}s (${(totalSec / 60).toFixed(2)} min)\n`)
-
-// Write FFMETADATA file
 const metaLines = [
   ';FFMETADATA1',
   'major_brand=isom',
   'minor_version=512',
   'compatible_brands=isomiso2avc1mp41',
-  'title=AEM Orbit — Comprehensive Walkthrough (v3)',
+  'title=AEM Orbit — Comprehensive Walkthrough',
   'comment=Recorded against live AEM instances in 1920x1080 60fps with Christopher Neural voiceover',
-  'encoder=Antigravity AEM Orbit Video Pipeline v3',
+  'encoder=AEM Orbit Video Pipeline',
 ]
-
 for (const ch of chapterMetadata) {
-  metaLines.push('')
-  metaLines.push('[CHAPTER]')
-  metaLines.push('TIMEBASE=1/1000')
-  metaLines.push(`START=${ch.startMs}`)
-  metaLines.push(`END=${ch.endMs}`)
-  metaLines.push(`title=Chapter ${ch.num} · ${ch.title}`)
+  metaLines.push('', '[CHAPTER]', 'TIMEBASE=1/1000', `START=${ch.startMs}`, `END=${ch.endMs}`, `title=Chapter ${ch.num} · ${ch.title}`)
 }
 
-const metaFile = path.join(OUT, 'chapters-metadata.txt')
+const metaFile = path.join(OUT, 'chapters-metadata-v4.txt')
+const concatListFile = path.join(OUT, 'concat-list-v4.txt')
 fs.writeFileSync(metaFile, metaLines.join('\n') + '\n')
-
-const concatListFile = path.join(OUT, 'concat-list.txt')
 fs.writeFileSync(concatListFile, concatList.join('\n') + '\n')
 
-console.log('=== Step 2: Concatenating full walkthrough video with chapters ===')
-const fullOutput = path.join(OUT, 'orbit-for-aem-walkthrough.mp4')
-const tempConcat = path.join(OUT, 'orbit-for-aem-walkthrough.temp.mp4')
-
-// 1. Concat streams without re-encoding
-execSync(
-  `ffmpeg -y -v error -f concat -safe 0 -i "${concatListFile}" -c copy "${tempConcat}"`,
-  { stdio: 'inherit' }
-)
-
-// 2. Add chapter metadata
-execSync(
-  `ffmpeg -y -v error -i "${tempConcat}" -i "${metaFile}" -map_metadata 1 -c copy -movflags +faststart "${fullOutput}"`,
-  { stdio: 'inherit' }
-)
+console.log('\n=== Step 2: Concatenating full v4 walkthrough ===')
+const fullV4 = path.join(OUT, 'orbit-for-aem-walkthrough-v4.mp4')
+const tempConcat = path.join(OUT, 'orbit-for-aem-walkthrough-v4.temp.mp4')
+execSync(`ffmpeg -y -v error -f concat -safe 0 -i "${concatListFile}" -c copy "${tempConcat}"`, { stdio: 'inherit' })
+execSync(`ffmpeg -y -v error -i "${tempConcat}" -i "${metaFile}" -map_metadata 1 -c copy -movflags +faststart "${fullV4}"`, { stdio: 'inherit' })
 fs.unlinkSync(tempConcat)
+fs.copyFileSync(fullV4, path.join(OUT, 'orbit-for-aem-walkthrough.mp4'))
 
-const fullStat = fs.statSync(fullOutput)
-console.log(`Created: ${fullOutput} (${(fullStat.size / (1024 * 1024)).toFixed(1)} MB)\n`)
-
-console.log('=== Step 3: Generating ~3-minute Highlights Cut from v3 ===')
-const HIGHLIGHT_CLIPS = [
-  { file: '00-intro-v3.mp4', start: 5.0, dur: 25.0, label: 'Intro & Floating HUD' },
-  { file: '01-orb-v3.mp4', start: 16.0, dur: 26.0, label: 'Orb 7-Leaf Radial Fan' },
-  { file: '02-toolbar-v3.mp4', start: 45.0, dur: 27.0, label: 'Toolbar & Cross-Env Switching' },
-  { file: '03-authoring-v3.mp4', start: 30.0, dur: 28.0, label: 'Replication Pre-Flight & Governance' },
-  { file: '04-devtools-v3.mp4', start: 10.0, dur: 28.0, label: 'JCR Tree & Component Overlays' },
-  { file: '05-sync-v3.mp4', start: 18.0, dur: 24.0, label: '1-Click Content Sync & Diff' },
-  { file: '11-shortcuts-v3.mp4', start: 12.0, dur: 24.0, label: 'Command Palette Cmd+K' },
-  { file: '00-intro-v3.mp4', start: 82.0, dur: 16.0, label: 'Wrap-up & Zero-Trust Architecture' },
+console.log('=== Step 3: Generating ~3-minute Highlights Cut from v4 ===')
+const hlClips = [
+  { file: '00-intro-v4.mp4', start: 5.0, dur: 22.0 },
+  { file: '01-orb-v4.mp4', start: 14.0, dur: 24.0 },
+  { file: '02-toolbar-v4.mp4', start: 16.0, dur: 26.0 },
+  { file: '04-devtools-v4.mp4', start: 6.0, dur: 24.0 },
+  { file: '06-seo-v4.mp4', start: 6.0, dur: 22.0 },
+  { file: '07-workspace-v4.mp4', start: 14.0, dur: 26.0 },
+  { file: '10-settings-v4.mp4', start: 22.0, dur: 26.0 },
+  { file: '11-shortcuts-v4.mp4', start: 10.0, dur: 22.0 },
 ]
-
-const hlConcatList = []
-const hlTempDir = path.join(OUT, 'highlights-scratch')
-if (!fs.existsSync(hlTempDir)) fs.mkdirSync(hlTempDir, { recursive: true })
-
-for (let i = 0; i < HIGHLIGHT_CLIPS.length; i++) {
-  const clip = HIGHLIGHT_CLIPS[i]
-  const clipFile = path.join(hlTempDir, `clip-${i}.mp4`)
-  const srcFile = path.join(OUT, clip.file)
-  console.log(`  Extracting clip ${i + 1}/${HIGHLIGHT_CLIPS.length}: ${clip.label} (${clip.dur}s)`)
-  execSync(
-    `ffmpeg -y -v error -ss ${clip.start} -i "${srcFile}" -t ${clip.dur} -c:v libx264 -preset fast -crf 17 -r 60 -pix_fmt yuv420p -c:a aac -ar 48000 -ac 1 "${clipFile}"`,
-    { stdio: 'inherit' }
-  )
-  hlConcatList.push(`file '${clipFile}'`)
+const hlTempDir = path.join(OUT, 'highlights-scratch-v4')
+fs.mkdirSync(hlTempDir, { recursive: true })
+const hlList = []
+for (let i = 0; i < hlClips.length; i++) {
+  const c = hlClips[i]
+  const out = path.join(hlTempDir, `clip-${i}.mp4`)
+  const src = path.join(OUT, c.file)
+  const durProbe = JSON.parse(execSync(`ffprobe -v error -show_entries format=duration -of json "${src}"`).toString())
+  const actualDur = parseFloat(durProbe.format.duration)
+  const ss = Math.max(0, Math.min(c.start, actualDur - 6))
+  const t = Math.min(c.dur, Math.max(4, actualDur - ss))
+  execSync(`ffmpeg -y -v error -ss ${ss.toFixed(1)} -i "${src}" -t ${t.toFixed(1)} -c:v libx264 -preset fast -crf 17 -r 60 -pix_fmt yuv420p -c:a aac -ar 48000 -ac 1 "${out}"`, { stdio: 'inherit' })
+  hlList.push(`file '${out}'`)
 }
+const hlListFile = path.join(hlTempDir, 'list.txt')
+fs.writeFileSync(hlListFile, hlList.join('\n') + '\n')
+const hlV4 = path.join(OUT, 'orbit-for-aem-highlights-v4.mp4')
+execSync(`ffmpeg -y -v error -f concat -safe 0 -i "${hlListFile}" -c copy -movflags +faststart "${hlV4}"`, { stdio: 'inherit' })
+fs.copyFileSync(hlV4, path.join(OUT, 'orbit-for-aem-highlights.mp4'))
+fs.rmSync(hlTempDir, { recursive: true, force: true })
 
-const hlListFile = path.join(hlTempDir, 'highlights-list.txt')
-fs.writeFileSync(hlListFile, hlConcatList.join('\n') + '\n')
-
-const highlightsOutput = path.join(OUT, 'orbit-for-aem-highlights.mp4')
-execSync(
-  `ffmpeg -y -v error -f concat -safe 0 -i "${hlListFile}" -c copy -movflags +faststart "${highlightsOutput}"`,
-  { stdio: 'inherit' }
-)
-
-// Clean scratch
-for (let i = 0; i < HIGHLIGHT_CLIPS.length; i++) {
-  fs.unlinkSync(path.join(hlTempDir, `clip-${i}.mp4`))
-}
-fs.unlinkSync(hlListFile)
-fs.rmdirSync(hlTempDir)
-
-const hlStat = fs.statSync(highlightsOutput)
-const hlProbe = JSON.parse(
-  execSync(`ffprobe -v error -show_entries format=duration -of json "${highlightsOutput}"`).toString()
-)
-console.log(`Created: ${highlightsOutput} (${parseFloat(hlProbe.format.duration).toFixed(1)}s, ${(hlStat.size / (1024 * 1024)).toFixed(1)} MB)\n`)
-
-console.log('=== Step 4: Extracting Posters & Linking v3 Tutorial Videos ===')
-if (!fs.existsSync(POSTERS)) fs.mkdirSync(POSTERS, { recursive: true })
-if (!fs.existsSync(VIDEOS)) fs.mkdirSync(VIDEOS, { recursive: true })
-
+console.log('=== Step 4: Extracting Posters & Linking v4 Tutorial Videos ===')
+fs.mkdirSync(POSTERS, { recursive: true })
+fs.mkdirSync(VIDEOS, { recursive: true })
 for (const ch of CHAPTERS) {
-  const v3File = path.join(OUT, `${ch.id}-v3.mp4`)
-
-  // Extract clean poster frame at 6.0s (after title pill auto-dismisses)
-  const posterFile = path.join(POSTERS, `${ch.id}.jpg`)
-  execSync(
-    `ffmpeg -y -v error -ss 6.0 -i "${v3File}" -vframes 1 -vf "scale=800:450" -q:v 2 "${posterFile}"`,
-    { stdio: 'inherit' }
-  )
-  console.log(`  Updated poster for ${ch.id}`)
-
-  // Update relative symlink in docs/tutorial/videos/
-  const tutorialVideoLink = path.join(VIDEOS, `${ch.id}-v3.mp4`)
-  try {
-    if (fs.existsSync(tutorialVideoLink) || fs.lstatSync(tutorialVideoLink)) fs.unlinkSync(tutorialVideoLink)
-  } catch { /* ignore */ }
-  fs.symlinkSync(`../../../video/out/${ch.id}-v3.mp4`, tutorialVideoLink)
+  const v4File = path.join(OUT, `${ch.id}-v4.mp4`)
+  execSync(`ffmpeg -y -v error -ss 6.0 -i "${v4File}" -vframes 1 -vf "scale=800:450" -q:v 2 "${path.join(POSTERS, `${ch.id}.jpg`)}"`, { stdio: 'inherit' })
+  const link = path.join(VIDEOS, `${ch.id}-v4.mp4`)
+  try { fs.unlinkSync(link) } catch { /* ignore */ }
+  fs.symlinkSync(`../../../video/out/${ch.id}-v4.mp4`, link)
 }
 
-console.log('\n=== All Operations Completed Successfully ===')
+console.log(JSON.stringify({ chapters: chapterMetadata.map((c) => ({ id: c.id, duration: Math.round(c.durSec) })) }, null, 2))
+console.log('=== v4 Assembly Complete ===')

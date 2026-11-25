@@ -1,5 +1,7 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
- * Orb layout — the ring of pointed leaves (an icon above its label) that fans out around the floating orb.
+ * @file Orb layout geometry and leaf arrangement for the floating fan menu.
+ * @module shared/orb-layout
  *
  * Pure geometry shared by the content script (applies it) and the tests.
  * The leaves form a half ring opening upwards. When the orb has been dragged near an
@@ -28,11 +30,17 @@ export const MAX_ENV_LEAVES = 6;
 
 /**
  * The orb's fixed leaves, left to right: seven slots, so the environment switcher ('env') is always in the middle.
- * JCR needs Developer Mode; without it, Copy path takes its place so the ring keeps its shape.
- * @param {boolean} showJcr  Developer Mode allows the JCR inspector.
+ * Adapts to the active persona while remaining backwards-compatible with boolean `showJcr`:
+ * - QA persona focuses on verification (`audit`, `inspect`, `cache`).
+ * - Dev / JCR-enabled Custom includes `jcr` in the right ring; otherwise `copy` fills the slot.
+ * @param {boolean} showJcr Whether Developer Mode / JCR inspector is enabled.
+ * @param {'author'|'qa'|'dev'|'custom'} [persona] Active workspace persona.
  * @returns {string[]} toolbar item ids, plus 'env' for the environment switcher
  */
-export function orbLeafOrder(showJcr) {
+export function orbLeafOrder(showJcr, persona) {
+  if (persona === 'qa') {
+    return ['view', 'live', 'audit', 'env', 'inspect', 'cache', 'props'];
+  }
   return ['edit', 'view', 'live', 'env', showJcr ? 'jcr' : 'copy', 'props', 'sites'];
 }
 
@@ -71,6 +79,17 @@ export function fanOuterRadius(count, span = 180) {
   return Math.min(ORB.maxOuter, Math.max(ORB.minOuter, Math.ceil(2 * mid - ORB.inner)));
 }
 
+/**
+ * Returns whether placing a leaf center at `(angle, outer)` keeps it comfortably inside the viewport.
+ *
+ * @param {number} angle - Polar angle in degrees.
+ * @param {number} outer - Distance from the orb center in CSS pixels.
+ * @param {number} cx - Orb center X coordinate.
+ * @param {number} cy - Orb center Y coordinate.
+ * @param {number} vw - Viewport width in CSS pixels.
+ * @param {number} vh - Viewport height in CSS pixels.
+ * @returns {boolean}
+ */
 function fits(angle, outer, cx, cy, vw, vh) {
   const m = ORB.margin;
   const x = cx + outer * Math.cos(rad(angle));

@@ -1,3 +1,4 @@
+/* Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0 */
 /**
  * AEM Orbit — Toolbar Styles
  * Layout: fixed bottom-center horizontal pill bar (Adobe Sidekick style).
@@ -64,6 +65,7 @@ html[data-asp-theme="light"] .asp-toast {
   pointer-events: none;
 }
 /* The orb's hub caption sits under it: leave room for it at the default (not dragged) position. */
+#aem-sidekick-pro-root.asp-root-orb,
 #aem-sidekick-pro-root:has(.asp-bar.asp-orb.asp-minimized) { bottom: 30px; }
 
 #aem-sidekick-pro-root * {
@@ -249,6 +251,8 @@ html[data-asp-theme="light"] .asp-toast {
 
 .asp-env-picker {
   position: fixed;
+  display: flex;
+  flex-direction: column;
   background: var(--asp-bg);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -257,12 +261,16 @@ html[data-asp-theme="light"] .asp-toast {
   padding: 6px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   min-width: 160px;
+  max-width: calc(100vw - 24px);
+  max-height: min(65vh, calc(100vh - 24px));
+  overflow: hidden;
   z-index: 2147483647;
   pointer-events: auto;
   font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 
 .asp-env-picker-label {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -271,7 +279,28 @@ html[data-asp-theme="light"] .asp-toast {
   padding: 4px 8px 6px;
 }
 
-.asp-env-picker-items { display: flex; flex-direction: column; gap: 1px; }
+.asp-env-picker-items,
+.asp-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--asp-fg), 0.25) transparent;
+}
+.asp-env-picker-items::-webkit-scrollbar,
+.asp-menu-items::-webkit-scrollbar,
+.asp-palette-list::-webkit-scrollbar { width: 5px; }
+.asp-env-picker-items::-webkit-scrollbar-thumb,
+.asp-menu-items::-webkit-scrollbar-thumb,
+.asp-palette-list::-webkit-scrollbar-thumb {
+  background: rgba(var(--asp-fg), 0.25);
+  border-radius: 3px;
+}
 
 .asp-env-pick-btn {
   all: unset;
@@ -416,8 +445,8 @@ html[data-asp-theme="light"] .asp-toast {
   border-radius: 12px;
   overflow: hidden;
   width: 540px;
-  max-width: calc(100vw - 32px);
-  max-height: 460px;
+  max-width: calc(100vw - 24px);
+  max-height: min(460px, calc(100vh - 24px));
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   z-index: 2147483647;
   pointer-events: auto;
@@ -508,11 +537,14 @@ html[data-asp-theme="light"] .asp-toast {
 /* Table wrapper — scrollable */
 .asp-inspector-table-wrap {
   overflow-y: auto;
+  overscroll-behavior: contain;
   flex: 1;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--asp-fg), 0.25) transparent;
 }
-.asp-inspector-table-wrap::-webkit-scrollbar { width: 4px; }
-.asp-inspector-table-wrap::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.asp-inspector-table-wrap::-webkit-scrollbar { width: 5px; }
+.asp-inspector-table-wrap::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
 /* Properties table */
 .asp-inspector-table {
@@ -588,20 +620,33 @@ html[data-asp-theme="light"] .asp-toast {
 }
 .asp-tree summary:hover { background: rgba(var(--asp-fg), 0.04); }
 .asp-tree-type { margin-left: 8px; color: rgba(var(--asp-fg), 0.3); font-size: 10.5px; }
-.asp-tree-prop { display: flex; gap: 6px; border-bottom: 1px solid rgba(var(--asp-fg), 0.04); }
+.asp-tree-prop { display: flex; gap: 6px; border-bottom: 1px solid rgba(var(--asp-fg), 0.04); cursor: pointer; }
+.asp-tree-prop:hover { background: rgba(var(--asp-fg), 0.05); }
 .asp-tree-prop .asp-insp-key { padding: 4px 8px 4px 12px; }
 .asp-tree-prop .asp-insp-val { padding: 4px 8px 4px 0; }
 
 /* ── Floating panels (SEO check, cache headers) ───────────────────────────── */
 
-.asp-float-panel { display: flex; width: 520px; }
+.asp-float-panel { display: flex; width: 520px; max-width: calc(100vw - 24px); max-height: min(460px, calc(100vh - 24px)); }
 .asp-float-body {
   padding: 4px 0;
   font-size: 12px;
   color: rgba(var(--asp-fg), 0.75);
-  max-height: 380px;
+  max-height: min(380px, calc(100vh - 96px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--asp-fg), 0.25) transparent;
 }
 
+.asp-audit-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 10px;
+}
+.asp-audit-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .asp-audit-score { padding: 8px 12px; font-size: 13px; font-weight: 700; }
 .asp-audit-score[data-level="good"] { color: var(--asp-ok); }
 .asp-audit-score[data-level="ok"]   { color: var(--asp-warn); }
@@ -656,13 +701,23 @@ html[data-asp-theme="light"] .asp-toast {
   box-sizing: border-box;
 }
 .asp-palette-box .asp-inspector-search-input { width: 100%; box-sizing: border-box; font-size: 13px; height: 34px; }
-.asp-palette-list { margin-top: 6px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.asp-palette-list {
+  margin-top: 6px;
+  max-height: min(50vh, calc(100vh - 160px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--asp-fg), 0.25) transparent;
+}
 .asp-palette-sel { background: rgba(15,98,254,0.35) !important; color: var(--asp-fg-strong) !important; }
 
 
 /* ── Tools menu (reuses .asp-env-picker shell) ───────────────────────────── */
 
-.asp-menu { min-width: 260px; display: flex; flex-direction: column; gap: 1px; }
+.asp-menu { min-width: 260px; max-width: min(360px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 2px; }
 
 .asp-menu-item {
   all: unset;

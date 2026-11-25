@@ -198,3 +198,10 @@ test('in open space seven leaves still have room for a label', () => {
   assert.equal(plan.compact, false);
   assert.ok(plan.outer <= ORB.maxOuter);
 });
+
+test('orbLeafOrder adapts for qa persona while preserving 7 slots', () => {
+  const qa = orbLeafOrder(false, 'qa');
+  assert.equal(qa.length, 7);
+  assert.equal(qa[3], 'env');
+  assert.ok(qa.includes('audit') && qa.includes('cache') && qa.includes('inspect'));
+});

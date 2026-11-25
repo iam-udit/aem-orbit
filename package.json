@@ -1,7 +1,27 @@
 {
   "name": "aem-orbit",
   "version": "1.0.0-beta",
-  "description": "Developer & author Chrome extension for AEM as a Cloud Service — publish (incl. Preview tier), reference check, content drift, JCR tree, component inspector, SEO/a11y check, command palette.",
+  "description": "Developer & author cross-browser extension for AEM as a Cloud Service and AEM 6.5 — workspace personas, preview/publish, reference check, content sync, JCR tree, component inspector, SEO/a11y audit, and command palette.",
+  "license": "Apache-2.0",
+  "author": "Udit Narayan Nayak (https://github.com/iam-udit)",
+  "homepage": "https://iam-udit.github.io/aem-orbit/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iam-udit/aem-orbit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iam-udit/aem-orbit/issues"
+  },
+  "keywords": [
+    "aem",
+    "adobe-experience-manager",
+    "browser-extension",
+    "chrome-extension",
+    "firefox-addon",
+    "safari-web-extension",
+    "authoring",
+    "developer-tools"
+  ],
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -12,10 +32,13 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "check": "npm run lint && npm test",
     "build": "node scripts/build.mjs",
+    "build:firefox": "node scripts/build.mjs --firefox",
+    "build:all": "node scripts/build.mjs && node scripts/build.mjs --firefox",
     "build:policy-test": "node scripts/build.mjs --policy-test",
     "watch": "node scripts/build.mjs --watch",
     "zip": "npm run build && rm -f dist/aem-orbit-$npm_package_version.zip && cd dist/extension && zip -qr ../aem-orbit-$npm_package_version.zip . -x '*.DS_Store' -x '*.map'",
     "release": "npm run check && npm run zip",
+    "test:e2e": "node scripts/e2e-chrome-devtools.mjs",
     "test:e2e:visual": "node scripts/e2e-chrome-devtools.mjs"
   },
   "devDependencies": {

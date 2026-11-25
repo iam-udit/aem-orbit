@@ -1,8 +1,8 @@
 # Low-Level Design (LLD) — AEM Orbit
 
 **Document Version:** 1.0.0-beta  
-**Target Platform:** Google Chrome (Manifest V3)  
-**Modules:** Background Router, AEM API Client, URL Engine, Page Audit Engine, UI Action Controllers, Dialogs
+**Target Platforms:** Chromium (MV3), Firefox (`>=115` MV3 via `background.scripts`), Safari Web Extensions  
+**Modules:** Browser Compat Layer, Persona Engine, Background Router, AEM API Client, URL Engine, Page Audit Engine, UI Action Controllers, Dialogs
 
 ---
 
@@ -41,6 +41,7 @@ interface ExtensionConfig {
   allowUpwardSync: boolean;   // Safety: false (default) = Sync only copies from a higher env to a lower one
   enableKeyboardShortcut: boolean;
   showLastModified: boolean;
+  persona: 'author' | 'qa' | 'dev' | 'custom'; // 'custom' preserves legacy defaults
   enableDevMode: boolean;
   devToolsButtons: {
     jcr: boolean;
@@ -52,6 +53,14 @@ interface ExtensionConfig {
     delete: boolean;
     sync: boolean;            // Sync content is a developer feature: needs enableDevMode and this flag
   };
+  qaToolsButtons: {           // Opt-in in 'custom'; enabled via 'qa'/'dev' presets
+    audit: boolean;
+    cache: boolean;
+    readiness: boolean;
+  };
+  profiles: Record<string, { label: string; contentRoot: string; appName: string; matchDomains?: string[]; urlMappings?: string }>;
+  activeProfile: string | null;
+  customSnapshot: object | null; // Preserved custom checkboxes when previewing presets
   classicBar: boolean;        // Opt-in: show the classic horizontal minimized bar instead of the default floating orb (default false)
   summonOnLongPress: boolean; // Opt-in, needs floating orb: press and hold on the page to open the orb at the pointer (default false)
   customizeToolbar: boolean;  // Opt-in: use toolbarLayout instead of the built-in toolbar (default false)
@@ -132,8 +141,17 @@ URL mappings (`urlMappings`) are dispatcher / CDN rewrites, so they are applied 
 
 Pure module imported by both the content script (applies the layout) and the options page (edits it).
 
-- `TOOLBAR_ITEMS`: the registry. Each item has `id`, `label`, `elId` (the toolbar button's element id), `group`, `icon` (SVG path), and optional `dev` (Developer Mode key), `required` and `overflow`. Delete and Unpublish are not in it, so they can never be placed on a bar.
-- `defaultLayout()`: the toolbar as it shipped. Regular: Edit, View, Live, Props. Expanded: Tier, Publish, Locales | Sites, Sync, Inspect, JCR, More | palette hint, Copy path, Settings.
+- `TOOLBAR_ITEMS`: the registry. Each item has `id`, `label`, `elId` (the toolbar button's element id), `group`, `icon` (SVG path), and optional `dev` (Developer Mode key), `qa` (QA Verification key: `audit` or `cache`), `required` and `overflow`. Delete and Unpublish are not in it, so they can never be placed on a bar.
+- `defaultLayout()`: the toolbar as it shipped. Regular: Edit, View, Live, Props. Expanded: Tier, Publish, Locales | Sites, Sync, Inspect, JCR, More | palette hint, Copy path, Settings. When active persona is `author`, `qa`, or `dev`, `PERSONA_LAYOUTS[persona]` overrides the layout automatically (`custom` uses `defaultLayout()` or `toolbarLayout` when `customizeToolbar` is enabled).
+
+### 2.1a Workspace Personas & Cross-Browser Compatibility (`src/shared/persona.js`, `src/shared/browser-compat.js`)
+
+- **`persona.js` (pure):** Defines `PERSONAS = ['author', 'qa', 'dev', 'custom']`, `PERSONA_DEFS`, `PERSONA_LAYOUTS`, `resolvePersonaState(config)`, `allowedPersonasForConfig(config)`, and `isPersonaToolEnabled(state, key)`. `custom` keeps legacy defaults (replication on, `qaToolsButtons` opt-in off unless checked, optional `enableDevMode` & custom toolbar layout); `qa` enables SEO audit, cache headers, QA Readiness, highlight, inspect, and reload while hiding publishing & JCR mutations (`readOnlyJcr: true`); `dev` enables all developer + QA tools; `author` streamlines controls for content authors. Managed policies `defaultPersona`, `allowedPersonas`, and `disabledControls: ['developerMode']` filter and enforce permitted personas in `getConfig()` and the UI.
+- **`browser-compat.js`:** Abstracts WebExtension namespaces (`globalThis.browser` Promises vs `globalThis.chrome` callbacks), normalizes `compatStorageGet/Set/Remove/Clear` (gracefully handling absent `managed`/`session` areas in Safari/Firefox while rejecting real sync/local errors), wraps `permissions.contains` before `permissions.request` in `requestOriginsCompat()`, and provides `createTimeoutSignal()`, `copyToClipboard()`, `notifyCompat()`, and `reloadTabCompat()`. `scripts/build.mjs --firefox` compiles a Firefox MV3 target into `dist/firefox/` using `background.scripts`.
+
+### 2.1b Viewport-Bounded Floating Windows (`fitFloatingBox` in `src/content/content-script.js`)
+
+- Long menus (Locales with MSM live copies + hreflang lists, Env Picker, More menu) and panels (JCR Tree, SEO Audit, Cache Headers, Component & DAM cards) run through `fitFloatingBox(box, refRect, { alignLeft, preferredMaxH })`: constrains `maxHeight` to viewport margins (`12px`), centers vertically on compact screens when neither space above nor space below the toolbar fits natural height, and delegates overflowing items to internal `overflow-y: auto` (`scrollbar-width: thin`) containers (`.asp-menu-items`, `.asp-float-body`, `#asp-inspector-body`).
 - `normalizeLayout(saved)`: drops unknown ids and duplicates, falls back to the default for a missing or unusable bar, always keeps `more` and `settings` on the expanded bar, and applies `MAX_ITEMS` (6 regular, 14 expanded) without dropping required items.
 - `isDefaultLayout(layout)`: the options page stores `null` for the default, so items added in a later version still reach people who never customised.
 - `layoutRuns(ids)`: splits the ids into runs of the same `group`; the toolbar draws a divider before each run.
@@ -146,7 +164,7 @@ Pure module imported by both the content script (applies the layout) and the opt
 Enabled by default (can be switched to the classic horizontal bar via `classicBar` in Settings). `init()` reads it once, so a change applies on the next page load. With `classicBar` on, none of the orb code runs and the regular bar is unchanged.
 
 - `planFan(count, cx, cy, vw, vh)`: pure geometry. Finds the largest free arc around the orb (a half ring pointing up when there is room, otherwise one pointing straight right, left or down, never a tilted one; if none fits, the longest free stretch, so a corner leaves about a quarter ring) and splits it into one pointed leaf per slot (a base curved around the orb, straight radial sides, a tip on the outer edge). For each leaf it returns the anchor point for its icon and label, the leaf's own box (`wedgeBox`) and a `clip-path: path()` relative to that box (`wedgePath`). Because the clip-path would cut off any border or shadow on a leaf, the hairline edge that keeps the glass visible on a page of the same colour (a white page in the light theme) is a `filter: drop-shadow()` on the fan (`.asp-orb-fan`), which is applied after the clip. There is no soft shadow: it fills the gaps and makes the leaves look joined. The icon sits at the anchor and the label just below it (`ORB.labelDrop`, nearer the orb where the leaf is wider). The outer radius grows with the leaf count and arc, up to `ORB.maxOuter`. When the arc is too narrow for a label even then, `compact` is true. `ringBounds()` gives the box around the orb and the ring.
-- Leaves: a fixed order from `orbLeafOrder(showJcr)`: `edit, view, live, env, jcr | copy, props, sites`. Seven slots keep Env in the middle; JCR needs Developer Mode and its toggle, and `copy` (label "Path") takes the slot otherwise. The saved `mini` layout is not used by the orb (it is kept for the regular bar). `#asp-orb-env-btn` and one `.asp-orb-envopt` button per configured environment are built once and parked in `#asp-pool`. `placeItems()` moves the leaves into `#asp-orb-fan` when `orbMode && isMinimized`. The same buttons and handlers are used. `toFan()` gives a button an icon and a label if it lacks one (from the registry) and `fromFan()` restores its own children when the bar expands. `layoutOrbFan()` sizes and clips each leaf from the plan and offsets its icon + label to the anchor point.
+- Leaves: fixed 7-slot order from `orbLeafOrder(showJcr, persona)`: standard/dev `edit, view, live, env, jcr | copy, props, sites`; QA persona (`persona === 'qa'`) `view, live, audit, env, inspect, cache, props`. Seven slots keep Env in the middle; JCR needs Developer Mode and its toggle, and `copy` (label "Path") takes the slot otherwise. The saved `mini` layout is not used by the orb (it is kept for the regular bar). `#asp-orb-env-btn` and one `.asp-orb-envopt` button per configured environment are built once and parked in `#asp-pool`. `placeItems()` moves the leaves into `#asp-orb-fan` when `orbMode && isMinimized`. The same buttons and handlers are used. `toFan()` gives a button an icon and a label if it lacks one (from the registry) and `fromFan()` restores its own children when the bar expands. `layoutOrbFan()` sizes and clips each leaf from the plan and offsets its icon + label to the anchor point.
 - Environment leaves: with 2 to `MAX_ENV_LEAVES` (6) environments, clicking the Env leaf sets `orbEnvOpen` and `placeItems()` fills the fan with `envFanOrder()` (the environments on both sides, the middle leaf becomes "Back" with `.asp-orb-back`: an arrow icon and a neutral fill, so it differs from the active environment leaf, which has `.asp-orb-active`). A click on it, Esc (first), choosing an environment, or the fan closing returns to the regular leaves (`setOrbEnvs()`, `openOrbFan()`). The `.asp-orb-envopt` buttons share the picker items' click handler (same page on the chosen environment, Shift-click retargets without navigating) and carry the environment colour (`--asp-envopt`). The leaves are marked `aria-pressed`. With more than 6 environments, or 1, the Env leaf closes the fan and opens the dropdown centred above the orb (`openEnvPicker()` anchors to the orb while `orbActive()`); `openOrbFan()` does nothing while the picker is open, and Esc returns focus to the orb. Environment names go through `titleCase()` for the leaves, picker, caption and toasts (`data-env` keeps the key). In orb mode `toast()` centres the toast horizontally on the orb (clamped to the window) and puts it just beyond the ring's outer edge (`ringBounds()` of a fresh `planFan`): above the ring, or below it when the ring points down or there is no room above. The default position of the orb sits 30px from the bottom so the hub caption fits under it. The JCR leaf closes the fan when it is clicked so the panel has the focus. Colour is identity only: the Env and environment leaves' icons use `--asp-orb-env` / `--asp-envopt` (darker values under `html[data-asp-theme="light"]`, matching the chip, so icons and the ring keep at least 3:1 contrast), while hover is the shared neutral lift. The environment in use gets a 24% tint, bold text and a `✓` added in `.asp-lbl::before` (`content: '✓ ' / ''`, empty alt text so screen readers rely on `aria-pressed`).
 - There is no Status leaf (the status shows on the hub caption and in the full bar's pill). The Env leaf (when it opens the dropdown) opens the existing env picker: `envAnchor()` returns it instead of `#asp-env-chip`, and `leafRect()` / `barBox()` make the picker, the menus and the panels (`placeAboveBar`) sit beyond the ring instead of on it. `closeEnvPicker()` and `onDocumentClick` handle both anchors.
 - The status pill, environment chip and Close button are hidden on the orb. The orb itself carries no dot or lock: `.asp-orb-ring` (the outer border and glow) takes the environment colour and turns dashed for a protected environment, the Env leaf swaps its icon for a lock, and the hub caption (`#asp-orb-hub`, e.g. `LOCAL · Published`) sits 9px above or below the orb, only on a side where the ring stays at least `CAP_CLEAR` (60°) away from straight up / down and the window has room (`data-orb-cap` is `none` otherwise, e.g. in corners and at the side edges). `updateOrbInfo()` writes the leaf labels, the caption and the orb's tooltip and accessible name. In `compact` mode the leaves show only an icon and the hub pill moves beside the hovered or focused leaf to show its name (`showLeafName()`).
@@ -262,6 +280,9 @@ Score = Math.max(0, 100 - (Failures * 10) - (Warnings * 4))
 | **A11y** | Heading Level Skips | e.g. `h2 → h4`: Warn with list | Warn |
 | **A11y** | Image Alternative Text | `<img>` without `alt`: Fail with image src list | Fail |
 | **A11y** | Form & Control Labels | Buttons without text or inputs without `<label>` | Fail |
+| **A11y** | Duplicate DOM IDs (`checkDuplicateIds`) | Any repeated `[id]` in DOM: Warn with count | Warn |
+| **A11y** | Broken Images (`checkBrokenImages`) | `complete && naturalWidth === 0`: Fail | Fail |
+| **A11y** | Missing Image Dimensions (`checkImageDimensions`) | Missing explicit `width`/`height` attributes (CLS): Info/Warn | Warn |
 | **Links** | Broken Internal Links | Same-origin links returning non-2xx status | Fail |
 
 ---
@@ -314,6 +335,9 @@ One mark everywhere: the AEM-style spiral (two interlaced strands, 8 lobes) in w
 | `GET_URL_VARIANTS` | `{ env?: string, jcrPath: string }` | `getUrlVariants(env, jcrPath)` | URL variants incl. `authorEditUrl`, `authorTouchUrl`, `authorDisabledUrl`, `publishUrl`, `previewUrl`, `dispatcherUrl`, `liveUrl` |
 | `GET_MSM_TARGETS` | `{ env?: string, jcrPath: string }` | `getMsmTargets(env, jcrPath)` | `{ ok: true, msm, targets: Array<{ role: 'master' \| 'livecopy', region, lang, path }> } \| { ok: false, error }` |
 | `RESOLVE_LOCALE_URLS` | `{ env?: string, urls: string[], tier, inEditor, wcmDisabled }` | `resolveLocaleUrls(env, urls, mode)` | `{ ok: true, urls: string[] }` (same length and order) |
+| `SET_PERSONA` | `{ persona: 'author'\|'qa'\|'dev'\|'custom' }` | `savePersonaPreference()` | `{ ok: true, persona } \| { ok: false, error }` |
+| `REMOVE_PAGE_LIST_ITEM` | `{ listName: 'favourites'\|'recent', index }` | `removePageListItem()` | `{ ok: true, favourites, recent }` |
+| `CLEAR_PAGE_LIST` | `{ listName: 'favourites'\|'recent' }` | `clearPageList()` | `{ ok: true, favourites, recent }` |
 
 ---
 

@@ -41,6 +41,12 @@ AEM Orbit is an open-source productivity toolkit for Adobe Experience Manager (A
 🚀 KEY FEATURES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+🎛️ WORKSPACE PERSONAS (AUTHOR, QA, DEVELOPER, CUSTOM)
+• Author Persona: Clean authoring, preview, locales, and safe publishing without developer clutter.
+• QA Persona: Built-in QA Readiness dashboard, SEO & Accessibility Audit (with duplicate ID & image dimension checks), CDN cache header inspector, component & DAM asset inspectors, and read-only view safety.
+• Developer Persona: Full JCR repository tree (Expand/Collapse All & copy path), CRXDE Lite, overlays, content sync, and developer debug shortcuts.
+• Custom Persona: Preserves classic shipped defaults with granular per-button and layout customization.
+
 🧭 1-CLICK TIER & ENVIRONMENT SWITCHING
 • Seamlessly jump between Author, Preview, Publish, and Dispatcher/CDN tiers.
 • Switch across Local, Dev, Stage, and Production while preserving your exact page path.

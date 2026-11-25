@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Background Service Worker for AEM Orbit.
  * @module background/service-worker
@@ -51,6 +52,9 @@ import {
   getPageLists,
   recordRecent,
   toggleFavourite,
+  removePageListItem,
+  clearPageList,
+  savePersonaPreference,
   logAction,
   getActionLog,
   clearActionLog,
@@ -63,9 +67,10 @@ import {
   controlPolicyError,
 } from '../shared/aem-api.js';
 import { controlForAction } from '../shared/control-policy.js';
-import { configuredOriginPatterns, quickLinks, parsePathList, firstConfiguredEnv } from '../shared/url-utils.js';
+import { configuredOriginPatterns, quickLinks, parsePathList, firstConfiguredEnv, resolveProfile } from '../shared/url-utils.js';
 import { evaluateAudit } from '../shared/page-audit.js';
 import { loginTarget } from '../shared/auth-error.js';
+import { getExtApi, getExtensionInitiatorDomain, notifyCompat, openOptionsCompat, reloadTabCompat } from '../shared/browser-compat.js';
 
 const CONTENT_SCRIPT_ID = 'asp-toolbar';
 
@@ -95,11 +100,12 @@ const DISABLED_ICONS = {
  * @returns {Promise<void>}
  */
 async function updateTabAction(tabId, url) {
-  if (!tabId || tabId === chrome.tabs.TAB_ID_NONE) return;
+  const api = getExtApi();
+  if (!api?.tabs || !api?.action || !tabId || tabId === api.tabs.TAB_ID_NONE) return;
 
   try {
     if (!url) {
-      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      const tab = await api.tabs.get(tabId).catch(() => null);
       url = tab?.url || '';
     }
 
@@ -108,19 +114,19 @@ async function updateTabAction(tabId, url) {
 
     if (matchedEnv) {
       // Allowed AEM Environment (Active state)
-      await chrome.action.enable(tabId);
-      await chrome.action.setIcon({ tabId, path: ACTIVE_ICONS });
-      await chrome.action.setPopup({ tabId, popup: 'src/popup/popup.html' });
-      await chrome.action.setTitle({
+      await api.action.enable?.(tabId);
+      await api.action.setIcon?.({ tabId, path: ACTIVE_ICONS });
+      await api.action.setPopup?.({ tabId, popup: 'src/popup/popup.html' });
+      await api.action.setTitle?.({
         tabId,
         title: `AEM Orbit (${matchedEnv.toUpperCase()} • ${tier || 'AEM'})`,
       });
     } else {
       // Disallowed / Non-AEM Page (Disabled state: greyscale icon & no popup on click)
-      await chrome.action.disable(tabId);
-      await chrome.action.setIcon({ tabId, path: DISABLED_ICONS });
-      await chrome.action.setPopup({ tabId, popup: '' });
-      await chrome.action.setTitle({
+      await api.action.disable?.(tabId);
+      await api.action.setIcon?.({ tabId, path: DISABLED_ICONS });
+      await api.action.setPopup?.({ tabId, popup: '' });
+      await api.action.setTitle?.({
         tabId,
         title: 'AEM Orbit (Disabled - Navigate to an AEM page)',
       });
@@ -137,8 +143,10 @@ async function updateTabAction(tabId, url) {
  * @returns {Promise<void>}
  */
 async function updateAllTabsAction() {
+  const api = getExtApi();
+  if (!api?.tabs?.query) return;
   try {
-    const tabs = await chrome.tabs.query({});
+    const tabs = await api.tabs.query({});
     await Promise.all(tabs.map((tab) => updateTabAction(tab.id, tab.url)));
   } catch {
     /* ignore */
@@ -155,18 +163,20 @@ async function updateAllTabsAction() {
  * @returns {Promise<void>}
  */
 async function syncContentScripts() {
+  const api = getExtApi();
+  if (!api?.scripting?.registerContentScripts || !api?.permissions?.contains) return;
   const config   = await getConfig();
   const wanted   = configuredOriginPatterns(config.environments);
   const granted  = [];
   for (const origin of wanted) {
-    if (await chrome.permissions.contains({ origins: [origin] })) granted.push(origin);
+    if (await api.permissions.contains({ origins: [origin] })) granted.push(origin);
   }
 
-  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [CONTENT_SCRIPT_ID] });
-  if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+  const existing = await api.scripting.getRegisteredContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+  if (existing.length) await api.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
   if (!granted.length) return;
 
-  await chrome.scripting.registerContentScripts([{
+  await api.scripting.registerContentScripts([{
     id: CONTENT_SCRIPT_ID,
     matches: granted,
     js: ['src/content/content-script.js'],
@@ -190,6 +200,8 @@ async function syncContentScripts() {
  * @returns {Promise<void>}
  */
 async function syncRefererRules() {
+  const api = getExtApi();
+  if (!api?.declarativeNetRequest?.getSessionRules || !api?.declarativeNetRequest?.updateSessionRules) return;
   const { environments } = await getConfig();
   const origins = new Set();
   for (const env of Object.values(environments)) {
@@ -198,57 +210,66 @@ async function syncRefererRules() {
       if (u.protocol === 'http:' || u.protocol === 'https:') origins.add(u.origin);
     } catch { /* host not configured */ }
   }
-  const addRules = [...origins].map((origin, i) => ({
-    id: i + 1,
-    priority: 1,
-    action: {
-      type: 'modifyHeaders',
-      requestHeaders: [
-        { header: 'referer', operation: 'set', value: `${origin}/` },
-        { header: 'origin',  operation: 'set', value: origin },
-      ],
-    },
-    condition: {
+  const initiator = getExtensionInitiatorDomain();
+  const addRules = [...origins].map((origin, i) => {
+    const condition = {
       urlFilter: `|${origin}/`,
-      initiatorDomains: [chrome.runtime.id],
       resourceTypes: ['xmlhttprequest'],
       requestMethods: ['post', 'put', 'delete'],
-    },
-  }));
-  const old = await chrome.declarativeNetRequest.getSessionRules();
-  await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: old.map((r) => r.id), addRules });
+    };
+    if (initiator) condition.initiatorDomains = [initiator];
+    return {
+      id: i + 1,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [
+          { header: 'referer', operation: 'set', value: `${origin}/` },
+          { header: 'origin',  operation: 'set', value: origin },
+        ],
+      },
+      condition,
+    };
+  });
+  const old = await api.declarativeNetRequest.getSessionRules();
+  await api.declarativeNetRequest.updateSessionRules({ removeRuleIds: old.map((r) => r.id), addRules });
 }
+
+let syncChain = Promise.resolve();
 
 /**
- * Safely triggers content-script, referer rule, and tab action synchronization with error logging.
+ * Serializes content-script, referer rule, and tab action synchronization so overlapping
+ * storage or permission events cannot race script unregister/register calls.
  *
- * @returns {void}
+ * @returns {Promise<void>}
  */
 function safeSync() {
-  syncContentScripts().catch((e) => console.error('[ASP] content-script sync failed', { error: e?.message }));
-  syncRefererRules().catch((e) => console.error('[ASP] referer rule sync failed', { error: e?.message }));
-  updateAllTabsAction().catch((e) => console.error('[ASP] tab action sync failed', { error: e?.message }));
+  syncChain = syncChain.then(async () => {
+    await syncContentScripts().catch((e) => console.error('[ASP] content-script sync failed', { error: e?.message }));
+    await syncRefererRules().catch((e) => console.error('[ASP] referer rule sync failed', { error: e?.message }));
+    await updateAllTabsAction().catch((e) => console.error('[ASP] tab action sync failed', { error: e?.message }));
+  });
+  return syncChain;
 }
 
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && (changes.environments || changes.urlMappings)) safeSync();
+const extApi = getExtApi();
+extApi?.storage?.onChanged?.addListener((changes, area) => {
+  if (area === 'sync' && (changes.environments || changes.urlMappings || changes.envOrder || changes.profiles || changes.activeProfile)) {
+    safeSync();
+  }
 });
-chrome.permissions.onAdded.addListener(safeSync);
-chrome.permissions.onRemoved.addListener(safeSync);
+extApi?.permissions?.onAdded?.addListener(safeSync);
+extApi?.permissions?.onRemoved?.addListener(safeSync);
 
 // Tab event listeners for active/disabled state management
-chrome.tabs.onActivated.addListener(({ tabId }) => {
+extApi?.tabs?.onActivated?.addListener(({ tabId }) => {
   updateTabAction(tabId).catch(() => {});
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+extApi?.tabs?.onUpdated?.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading' || changeInfo.url) {
     updateTabAction(tabId, changeInfo.url || tab?.url).catch(() => {});
   }
-});
-
-chrome.runtime.onInstalled.addListener(() => {
-  safeSync();
 });
 
 // ─── Protected-environment guard ─────────────────────────────────────────────
@@ -274,7 +295,8 @@ function pageName(jcrPath) {
 async function requireConfirmation(env, payload) {
   const { environments } = await getConfig();
   if (!environments[env]?.protected) return null;
-  if (payload.confirmText !== pageName(payload.jcrPath)) {
+  const expected = pageName(payload.jcrPath);
+  if (!expected || payload.confirmText !== expected) {
     return { ok: false, error: `Confirmation required on protected environment "${env}".` };
   }
   return null;
@@ -290,7 +312,8 @@ async function requireConfirmation(env, payload) {
  * @returns {boolean} True if sender URL starts with the extension base URL.
  */
 function isExtensionPage(sender) {
-  return typeof sender?.url === 'string' && sender.url.startsWith(chrome.runtime.getURL(''));
+  const baseUrl = getExtApi()?.runtime?.getURL?.('');
+  return typeof sender?.url === 'string' && typeof baseUrl === 'string' && sender.url.startsWith(baseUrl);
 }
 
 /**
@@ -308,9 +331,10 @@ async function withLoginHint(result) {
   return login ? { ...result, login } : result;
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+getExtApi()?.runtime?.onMessage?.addListener((message, sender, sendResponse) => {
   // Only accept messages from this extension's own pages / content scripts.
-  if (sender.id !== chrome.runtime.id) return false;
+  const myId = getExtApi()?.runtime?.id;
+  if (myId && sender?.id !== myId) return false;
   handleMessage(message, sender)
     .then(withLoginHint)
     .then(sendResponse)
@@ -360,9 +384,9 @@ async function resolveEnv(payload, sender) {
 async function notify(message) {
   const { notifyOnActions } = await getConfig();
   if (notifyOnActions === false) return;
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+  const api = getExtApi();
+  await notifyCompat({
+    iconUrl: api?.runtime?.getURL?.('icons/icon48.png') || 'icons/icon48.png',
     title: 'AEM Orbit',
     message,
   });
@@ -532,10 +556,15 @@ async function handleMessage(message, sender) {
       return findAcrossPages(env, payload.rootPath, payload.searchTerm, payload.options);
     }
 
-    case 'REPLACE_ACROSS_PAGES':
-      return confirmedAction({ payload, sender }, 'Find and replace',
+    case 'REPLACE_ACROSS_PAGES': {
+      const targetPath = payload.jcrPath
+        || payload.rootPath
+        || (Array.isArray(payload.replacements) && payload.replacements[0]?.propPath?.split('/jcr:content')[0])
+        || '';
+      return confirmedAction({ payload: { ...payload, jcrPath: targetPath }, sender }, 'Find and replace',
         (e) => replaceAcrossPages(e, payload.replacements),
         (e, result) => `[${e}] Replaced ${result.updatedCount || 0} value(s)`);
+    }
 
     case 'GET_COMPONENT_POLICY': {
       const env = await resolveEnv(payload, sender);
@@ -543,9 +572,10 @@ async function handleMessage(message, sender) {
     }
 
     case 'FLUSH_DISPATCHER': {
-      return confirmedAction({ payload, sender }, 'Dispatcher flush',
-        (env) => flushDispatcher(env, payload.path || payload.jcrPath),
-        (env) => `[${env}] Dispatcher flushed: ${payload.path || payload.jcrPath}`);
+      const flushPath = payload.jcrPath || payload.path || '';
+      return confirmedAction({ payload: { ...payload, jcrPath: flushPath }, sender }, 'Dispatcher flush',
+        (env) => flushDispatcher(env, flushPath),
+        (env) => `[${env}] Dispatcher flushed: ${flushPath}`);
     }
 
     case 'TEST_CONNECTION': {
@@ -561,8 +591,8 @@ async function handleMessage(message, sender) {
     case 'RELOAD_TAB': {
       // Real cache-bypassing reload (window.location.reload(true) is ignored by Chrome).
       if (!sender.tab?.id) return { ok: false, error: 'No tab' };
-      await chrome.tabs.reload(sender.tab.id, { bypassCache: true });
-      return { ok: true };
+      const reloaded = await reloadTabCompat(sender.tab.id, true);
+      return reloaded ? { ok: true } : { ok: false, error: 'Tab reload not supported' };
     }
 
     case 'LOCK_PAGE':
@@ -616,8 +646,9 @@ async function handleMessage(message, sender) {
 
     case 'GET_QUICK_LINKS': {
       const env = await resolveEnv(payload, sender);
-      const { environments, appName } = await getConfig();
-      return { ok: true, links: quickLinks(environments[env], appName) };
+      const { environments, appName, profiles, activeProfile } = await getConfig();
+      const profile = resolveProfile(payload.url || payload.jcrPath || sender?.tab?.url || '', profiles, activeProfile);
+      return { ok: true, links: quickLinks(environments[env], profile?.appName || appName) };
     }
 
     case 'GET_PAGE_LISTS':
@@ -629,15 +660,29 @@ async function handleMessage(message, sender) {
     case 'TOGGLE_FAVOURITE':
       return toggleFavourite(await resolveEnv(payload, sender), payload.jcrPath, payload.title);
 
+    case 'REMOVE_PAGE_LIST_ITEM':
+      return removePageListItem(payload.list, payload.env, payload.jcrPath);
+
+    case 'CLEAR_PAGE_LIST':
+      return clearPageList(payload.list);
+
+    case 'SET_PERSONA':
+      return savePersonaPreference(payload.persona);
+
     case 'SEARCH_PAGES': {
       const env = await resolveEnv(payload, sender);
-      const { rootPath, query, limit } = payload;
-      return searchPages(env, rootPath, query, limit);
+      let { rootPath } = payload;
+      if (!rootPath) {
+        const { contentRoot, profiles, activeProfile } = await getConfig();
+        const profile = resolveProfile(payload.url || sender?.tab?.url || '', profiles, activeProfile);
+        rootPath = profile?.contentRoot || contentRoot;
+      }
+      return searchPages(env, rootPath, payload.query, payload.limit);
     }
 
     case 'GET_URL_VARIANTS': {
       const env = await resolveEnv(payload, sender);
-      return getUrlVariants(env, payload.jcrPath);
+      return getUrlVariants(env, payload.jcrPath, payload.url || sender?.tab?.url || '');
     }
 
     case 'RESOLVE_LOCALE_URLS': {
@@ -705,12 +750,13 @@ async function handleMessage(message, sender) {
     case 'OPEN_TAB': {
       const { url } = payload;
       if (!/^https?:\/\//i.test(url || '')) return { ok: false, error: 'Invalid URL' };
-      chrome.tabs.create({ url });
+      const api = getExtApi();
+      api?.tabs?.create?.({ url });
       return { ok: true };
     }
 
     case 'OPEN_OPTIONS':
-      chrome.runtime.openOptionsPage();
+      await openOptionsCompat();
       return { ok: true };
 
     default:
@@ -720,12 +766,12 @@ async function handleMessage(message, sender) {
 
 // ─── Install / Update handler ─────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+getExtApi()?.runtime?.onInstalled?.addListener(async ({ reason }) => {
   await migrateSecretsToLocal();
   safeSync();
   if (reason === 'install') {
-    chrome.runtime.openOptionsPage();
+    await openOptionsCompat();
   }
 });
 
-chrome.runtime.onStartup.addListener(safeSync);
+getExtApi()?.runtime?.onStartup?.addListener(safeSync);

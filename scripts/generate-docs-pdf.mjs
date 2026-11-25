@@ -1,7 +1,13 @@
+/**
+ * @file Converts Markdown architecture documentation (`docs/HLD.md`, `docs/LLD.md`) into styled PDFs via Chrome headless.
+ * @module scripts/generate-docs-pdf
+ */
+
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
+/** Converts a Markdown document string into a standalone styled HTML document. */
 function mdToHtml(mdText, title) {
   const lines = mdText.split(/\r?\n/);
   const bodyHtml = [];
@@ -10,6 +16,7 @@ function mdToHtml(mdText, title) {
   let inTable = false;
   let tableRows = [];
 
+  /** Escapes HTML special characters for safe embedding inside generated markup. */
   function escapeHtml(str) {
     return str
       .replace(/&/g, '&amp;')
@@ -19,6 +26,7 @@ function mdToHtml(mdText, title) {
       .replace(/'/g, '&#39;');
   }
 
+  /** Flushes accumulated Markdown pipe-table rows as a formatted HTML `<table>`. */
   function flushTable() {
     if (!inTable || tableRows.length === 0) return;
     const out = ['<table>'];

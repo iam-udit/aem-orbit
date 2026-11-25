@@ -80,6 +80,19 @@
       "type": "boolean",
       "title": "Enforce Browser Session SSO authentication only; disables local credential storage"
     },
+    "defaultPersona": {
+      "type": "string",
+      "enum": ["author", "qa", "dev", "custom"],
+      "title": "Default workspace persona (Author, QA, Dev, or Custom)"
+    },
+    "allowedPersonas": {
+      "type": "array",
+      "title": "Allowed personas selectable by users (omit to allow all)",
+      "items": {
+        "type": "string",
+        "enum": ["author", "qa", "dev", "custom"]
+      }
+    },
     "profiles": {
       "type": "object",
       "title": "Multi-site / Multi-brand profiles",

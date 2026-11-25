@@ -1,7 +1,8 @@
 /**
  * Build the extension into dist/extension/ (load that folder unpacked).
  *
- *   node scripts/build.mjs                one-off build
+ *   node scripts/build.mjs                one-off Chromium build (dist/extension/)
+ *   node scripts/build.mjs --firefox      Firefox MV3 build (dist/firefox/)
  *   node scripts/build.mjs --watch        rebuild on change (with source maps)
  *   node scripts/build.mjs --policy-test  build dist/policy-test/ with an admin control policy
  *                                         baked in, to try the feature without an OS-level Chrome
@@ -20,9 +21,10 @@ import { normalizePolicy } from '../src/shared/control-policy.js';
 const root       = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const watch      = process.argv.includes('--watch');
 const policyTest = process.argv.includes('--policy-test');
+const firefox    = process.argv.includes('--firefox');
 const outDir     = process.env.ORBIT_BUILD_OUT
   ? path.resolve(process.env.ORBIT_BUILD_OUT)
-  : path.join(root, 'dist', policyTest ? 'policy-test' : 'extension');
+  : path.join(root, 'dist', firefox ? 'firefox' : (policyTest ? 'policy-test' : 'extension'));
 
 /**
  * Policy for the test build, from ORBIT_POLICY_TEST. Refuses anything that would silently
@@ -58,6 +60,8 @@ const policyPlugin = {
 const STATIC = [
   'manifest.json',
   'schema.json',
+  'LICENSE',
+  'NOTICE',
   'icons',
   'src/content/toolbar.css',
   'src/ui/dialog.css',
@@ -70,7 +74,7 @@ const common = {
   outbase:       '.',
   outdir:        outDir,
   bundle:        true,
-  target:        'chrome116',
+  target:        firefox ? ['firefox115'] : ['chrome116', 'edge116'],
   charset:       'utf8',
   legalComments: 'none',
   sourcemap:     watch ? 'linked' : false,
@@ -83,12 +87,25 @@ const builds = [
   { ...common, format: 'esm',  entryPoints: ['src/background/service-worker.js'] },
 ];
 
+/** Copies static HTML, CSS, manifest, schema, and icon assets into the target build directory. */
 async function copyStatic() {
   await Promise.all(STATIC.map(async (rel) => {
     const dest = path.join(outDir, rel);
     await mkdir(path.dirname(dest), { recursive: true });
     await cp(path.join(root, rel), dest, { recursive: true });
   }));
+}
+
+/** Adjusts the copied manifest for Firefox MV3 (`background.scripts` alongside ES modules). */
+async function patchManifestForFirefox() {
+  const file = path.join(outDir, 'manifest.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8'));
+  manifest.background = {
+    scripts: ['src/background/service-worker.js'],
+    type: 'module',
+  };
+  delete manifest.minimum_chrome_version;
+  await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
 /** The test build gets its own name so it can't be mistaken for the real extension. */
@@ -102,6 +119,7 @@ async function markAsPolicyTest() {
 
 await rm(outDir, { recursive: true, force: true });
 await copyStatic();
+if (firefox) await patchManifestForFirefox();
 if (policyTest) await markAsPolicyTest();
 
 if (watch) {

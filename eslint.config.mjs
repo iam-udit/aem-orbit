@@ -12,7 +12,7 @@ export default [
     files: ['src/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023,
-      globals: { ...globals.browser, chrome: 'readonly' },
+      globals: { ...globals.browser, chrome: 'readonly', browser: 'readonly' },
     },
     rules: {
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],

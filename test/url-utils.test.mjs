@@ -378,3 +378,15 @@ test('getUniversalEditorUrl constructs Universal Editor canvas deep link', () =>
   assert.equal(getUniversalEditorUrl('http://localhost:4502/content/site/en.html'), '', 'Universal Editor needs https');
   assert.equal(getUniversalEditorUrl('javascript:alert(1)'), '');
 });
+
+test('parseMsmPath supports multi-segment tenant language masters and hyphenated locales', () => {
+  assert.deepEqual(
+    parseMsmPath('/content/tenant/brand/language-masters/zh-hans/about'),
+    { kind: 'master', siteRoot: '/content/tenant/brand', lang: 'zh-hans', relPath: 'about' },
+  );
+  assert.deepEqual(
+    parseMsmPath('/content/wknd/emea/en_gb/adventures'),
+    { kind: 'livecopy', siteRoot: '/content/wknd', region: 'emea', lang: 'en_gb', relPath: 'adventures' },
+  );
+  assert.equal(parseMsmPath('/content/site/products/tv'), null);
+});

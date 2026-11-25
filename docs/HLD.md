@@ -1,7 +1,7 @@
 # High-Level Design (HLD) — AEM Orbit
 
 **Document Version:** 1.0.0-beta  
-**Target Platform:** Google Chrome (Manifest V3)  
+**Target Platforms:** Chromium (Chrome, Edge, Brave, Arc, Opera, Vivaldi), Firefox (`>=115` MV3), Safari Web Extensions (Manifest V3)  
 **Target Systems:** Adobe Experience Manager (AEM as a Cloud Service & AEM 6.5)
 
 ---
@@ -12,7 +12,9 @@
 This High-Level Design (HLD) defines the software architecture, system boundaries, security model, and integration patterns for **AEM Orbit**, a Chrome extension designed to streamline authoring, developer operations, and content governance across AEM Cloud and AEM 6.5 environments.
 
 ### 1.2 Architectural Goals
-- **Context Isolation & Security:** Adhere strictly to Chrome Manifest V3 security boundaries; isolate sensitive credentials from untrusted web page DOM contexts.
+- **Context Isolation & Security:** Adhere strictly to Manifest V3 security boundaries; isolate sensitive credentials from untrusted web page DOM contexts and verify `sender.id` on all runtime messaging.
+- **Cross-Browser Compatibility:** Abstract browser runtime differences (`browser.*` Promises vs `chrome.*` callbacks, storage area availability, MV3 background worker/scripts patching) via `src/shared/browser-compat.js`.
+- **Persona-Driven Workspace:** Tailor Settings, Toolbar, Radial Orb, Command Palette, and Popup controls cleanly across `author`, `qa`, `dev`, and `custom` personas (`src/shared/persona.js`).
 - **Least-Privilege Host Access:** Avoid blanket `<all_urls>` host permissions; request and bind permissions dynamically only to user-configured domains.
 - **Environment Agility:** Provide seamless, one-click tier navigation (Author ↔ Preview ↔ Publish ↔ Dispatcher/CDN) and multi-environment synchronization (Local ↔ Dev ↔ Stage ↔ Prod).
 - **High Performance & Zero Runtime Bloat:** Utilize native ES modules, lightweight functional architecture, and modern build tooling (`esbuild`) with zero heavy runtime framework dependencies.
@@ -76,27 +78,29 @@ flowchart TB
   - Displays real-time replication status (`Published`, `Draft`, `Modified`) and preview tier pills.
   - Hosts the Component Inspector, JCR Tree visualizer, editable region highlighter, and Command Palette (`⌘+K`).
   - Offers one-click **Edit / View / Live / Props** on the minimised bar, and Tier, Publish and Locales menus on the expanded bar. Locale and live-copy rows open in the same tier and view mode as the current page.
-  - Places the buttons on each bar from a saved layout (default: the built-in layout). Buttons removed from the expanded bar move into the More menu and stay in the Command Palette.
+  - Places the buttons on each bar from a saved layout or active persona (`author`, `qa`, `dev`, `custom`). Buttons removed from the expanded bar move into the More menu and stay in the Command Palette (`fitFloatingBox()` constrains long lists such as Locales, Env Picker, JCR trees, and audit panels to the viewport with internal scrollbars).
+  - Supports Expand/Collapse All and click-to-copy paths in the JCR inspector, Copy/Export JSON in SEO Audits, `.model.json`/`.infinity.json` inspection on Component cards, and live `storage.onChanged` synchronization.
   - Dispatches user actions to the background service worker via asynchronous message passing.
 
 ### 3.2 Extension Workspace Popup
 - **Role:** Standalone extension action UI accessible from the browser toolbar.
 - **Responsibilities:**
-  - Displays current page metadata, status details, and quick bookmarking (`★`).
-  - Offers the same **Edit / View / Live / Props** one-click actions as the toolbar, and live search that can point the popup at another page (with a note and a back button).
-  - **Developer Mode gating:** the *Developer Tools* group (JCR, CRXDE Lite, Overlays, Delete, Sync) is shown only when Developer Mode is on, and each button follows its per-button setting. Versions, Save Version and Copy URLs sit in *Workspace* and move into *Developer Tools* while it is shown.
-  - **Environment Compare:** Computes and renders SHA-256 canonical content drift across all configured tiers.
-  - **Version History & Checkpoints:** Lists Oak version trees and triggers checkpoint creations.
-  - **Bulk Replication:** Validates and executes batch publication/unpublication for up to 200 paths.
+  - Displays current page metadata, status details, header Persona pill (`Author` / `QA` / `Dev` / `Custom`), clickable Environment switcher, and quick bookmarking (`★`).
+  - Offers the same **Edit / View / Live / Props** one-click actions as the toolbar, and profile-aware live search that can point the popup at another page (with a note and a back button).
+  - **Persona & Policy gating:** `qa` reveals the dedicated *QA Verification* group (*SEO Audit*, *Cache Headers*, *QA Readiness* matrix across Local/Dev/Stage/Prod) while hiding replication/JCR write actions; `author` simplifies workspace tools to authoring/publishing; `dev` activates *Developer Tools* and *QA Verification*; `custom` preserves shipped defaults while honoring individual checkboxes.
+  - **Environment Compare:** Computes and renders SHA-256 canonical content drift across all configured tiers, with *Back* and *Copy JSON* diff controls.
+  - **Version History & Checkpoints:** Lists Oak version trees, restores versions (with protected confirmation), and triggers checkpoint creations.
+  - **Bulk Replication & Recent/Favourite Management:** Validates and executes batch publication/unpublication for up to 200 paths, and allows individual removal or clearing of Recent & Favourite lists.
   - **Quick Links:** Deep-links to Sites, Assets, CRXDE Lite, OSGi Consoles, and Cloud Manager.
-  - **Action Audit Log:** Displays and exports device-local CSV action logs.
+  - **Action Audit Log:** Displays and exports device-local CSV action logs with auto-refreshing Undo for synced pages.
 
 ### 3.3 Options & Configuration Engine
-- **Role:** Privileged configuration panel for managing environments and feature toggles.
+- **Role:** Privileged configuration panel for managing workspaces, brand profiles, environments, and feature toggles.
 - **Responsibilities:**
-  - Supports default environments (`local`, `dev`, `stage`, `prod`) and dynamic custom environments.
-  - Configures authentication methods (`Browser Session`, `Basic`, `Bearer IMS`, `None`).
-  - Requests dynamic Chrome host permissions (`chrome.permissions.request`) upon domain configuration.
+  - Provides **4-Persona selection** (`Author`, `QA`, `Developer`, `Custom`), dynamically updating toggles, visibility, Dev/QA button presets, and toolbar previews (`customSnapshot` preserves manual selections when sampling presets; *Customize in Custom mode* clones a preset).
+  - Supports default environments (`local`, `dev`, `stage`, `prod`), dynamic custom environments, and **Multi-Site Brand Profiles** CRUD (`contentRoot`, `appName`, `matchDomains`, per-profile `urlMappings`).
+  - Configures authentication methods (`Browser Session`, `Basic`, `Bearer IMS`, `None`), normalized trailing slashes, and `lockConfiguration` / `enforceSessionAuthOnly` / `allowedPersonas` managed enterprise policies (`schema.json`).
+  - Requests dynamic host permissions (`requestOriginsCompat`) via `permissions.contains` + `permissions.request` and runs Multi-Tier Health Diagnostics (Author `HEAD` → `GET` fallback on 405, CSRF, Publish, Preview, Dispatcher/CDN).
   - Manages Dispatcher-to-JCR prefix URL mappings.
   - Tracks unsaved changes (sticky header note and a `beforeunload` guard) and offers settings export / import as JSON. Export never contains credentials, and import only fills the form until the user saves.
   - Offers an opt-in **Allow syncing to higher environments** safety setting. By default, page sync only copies from a higher environment to a lower one (by the configured environment order). The service worker's API layer enforces this too, not only the menu.
@@ -154,7 +158,7 @@ flowchart LR
 | Category | Technology Selection | Architectural Rationale |
 |---|---|---|
 | **Architecture Paradigm** | Modular Functional (ESM) | Stateless, optimal for MV3 service worker lifecycles, zero `this` binding issues. |
-| **Bundling Toolchain** | `esbuild` (Target: `chrome116`) | Sub-10ms build times, clean IIFE output for content scripts, native ESM for worker. |
-| **Testing Framework** | Native Node.js Test Runner (`node --test`) | Zero testing dependencies, runs in sub-100ms, pure functional testability. |
+| **Bundling Toolchain** | `esbuild` (`chrome116` + Firefox MV3 `--firefox`) | Sub-10ms build times, IIFE bundles for content/popup/options, native ESM worker/scripts output across browsers (`src/shared/browser-compat.js`). |
+| **Testing Framework** | Native Node.js (`node --test`) + CDP E2E (`scripts/e2e/`) | Zero-dependency unit tests (`npm test`, 287 tests) + extensible real-Chrome CDP regression suite (`npm run test:e2e`, 20 checks across WKND Local/Dev/Stage/Prod). |
 | **Styling & UI** | Scoped CSS (`.asp-` namespace) | Prevents CSS leakage into host AEM author and client website layouts. |
 | **Accessibility Standard** | WAI-ARIA Modal Dialog Pattern | Focus trapping, Escape key handlers, full keyboard navigation. |

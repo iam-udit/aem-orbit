@@ -75,3 +75,16 @@ test('evaluateAudit tolerates empty input', () => {
   assert.ok(r.checks.length > 0);
   assert.ok(r.score >= 0);
 });
+
+test('evaluateAudit reports duplicateIds, broken images, and CLS missing dimensions', () => {
+  const r = evaluateAudit({
+    ...good,
+    duplicateIds: ['hero-cta'],
+    imgsBroken: ['/content/dam/missing.jpg'],
+    imgsNoDimensions: 3,
+  });
+  assert.equal(byMsg(r, /duplicate id/).status, 'warn');
+  assert.equal(byMsg(r, /broken image/).status, 'fail');
+  assert.equal(byMsg(r, /CLS risk/).status, 'warn');
+  assert.ok(r.summary && r.summary.fails === 1 && r.summary.warns === 2);
+});

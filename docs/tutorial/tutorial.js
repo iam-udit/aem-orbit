@@ -11,69 +11,69 @@
 
   const CHAPTERS = [
     {
-      id: '00-intro', label: '0', title: 'Introduction & Architecture', duration: 99,
-      description: 'What AEM Orbit is and how it fits into your daily workflow across Adobe Experience Manager environments.',
-      topics: ['Floating HUD control surface on top of any AEM page', 'Local, Dev, Stage, and Prod; Author, Publisher, and CDN', 'Developer tools, SEO, and accessibility checks', 'Privacy: no telemetry, no analytics, credentials stay in service worker'],
+      id: '00-intro', label: '0', title: 'Introduction & Personas Architecture', duration: 97,
+      description: 'Cross-browser WebExtension for Adobe Experience Manager with role-tailored Author, QA, Developer, and Custom personas.',
+      topics: ['Cross-browser WebExtension across Chromium, Firefox MV3, and Safari', 'Local, Dev, Stage, and Prod; Author, Preview, Publish, and CDN', 'Role-tailored Author, QA, Developer, and Custom personas', 'Privacy: zero telemetry, zero analytics, isolated credentials'],
     },
     {
-      id: '01-orb', label: '1', title: 'The Orb and the fan', duration: 220,
-      description: 'The animated Orb, its caption, the seven-leaf radial fan and the live environment switch.',
-      topics: ['Orb caption and live environment status color', 'The seven leaves: Edit, View, Live, Properties, Environment, JCR, Sites', 'Switching Dev, Stage, Prod and Local from the fan', 'Searching and filtering JCR properties in real-time'],
+      id: '01-orb', label: '1', title: 'The Orb & Persona Fan', duration: 173,
+      description: 'The animated Orb, its publication badge, radial leaves adapting live to QA/Author/Dev personas, and JCR Expand/Collapse controls.',
+      topics: ['Orb caption and live environment color coding', 'Radial leaves adapting dynamically across Custom and QA personas', 'Environment sub-leaves with Production crimson warning glow', 'In-page JCR inspector with Expand All, Collapse All, live search, and path copy'],
     },
     {
-      id: '01b-orb-position', label: '1b', title: 'Positioning the Orb', duration: 167,
-      description: 'Drag the Orb anywhere, watch the fan dynamically adapt, and toggle between Orb and Mini-Bar styles.',
-      topics: ['Dragging to all corners and screen edges; radial fan flips orientation', 'Per-domain position persistence across page reloads', 'Long-press pointer summon and Esc dismissal', 'Radial Orb versus classic horizontal Mini-Bar'],
+      id: '01b-orb-position', label: '1b', title: 'Positioning the Orb', duration: 130,
+      description: 'Drag the Orb anywhere, watch the fan dynamically adapt to viewport bounds, summon via long-press, or toggle Classic Mini-Bar.',
+      topics: ['Dragging to all corners and screen edges; radial fan flips orientation', 'Per-domain position persistence across page reloads', 'Long-press pointer summon and Esc dismissal', 'Radial Orb versus classic horizontal Mini-Bar across browsers'],
     },
     {
-      id: '02-toolbar', label: '2', title: 'Toolbar and navigation', duration: 260,
-      description: 'The horizontal toolbar: status pill, tier switcher, cross-environment jumps, locales and toasts.',
-      topics: ['Status pill and the live page details panel', 'Tier switcher: Author, Preview, Published, Live', 'Environment chip with Shift-click and Cmd-click new tab behavior', 'Language Masters and multi-site MSM live copies', 'Toasts with instantaneous Undo and View Live'],
+      id: '02-toolbar', label: '2', title: 'Toolbar & Personas', duration: 210,
+      description: 'Expanded toolbar with live More-menu persona switching, tiers, cross-env jumps, viewport-bounded scrollable locales, and toasts.',
+      topics: ['Live persona switching (QA vs Custom) directly from the More menu', 'Tier switcher: Edit, View, Preview, Published, Live CDN', 'Environment chip with Shift-click and Cmd-click new tab behavior', 'Viewport-bounded scrollable Language Masters and 20-locale MSM lists', 'Live details panel and action toasts with instantaneous Undo'],
     },
     {
-      id: '03-authoring', label: '3', title: 'Authoring and replication', duration: 365,
-      description: 'Publish safely: pre-flight checks, preview tier, page lock, tree and bulk publishing, and Prod Guard.',
-      topics: ['Publish and unpublish with pre-flight reference detection', 'Cloud Preview tier replication', 'Locking and unlocking pages with ownership badges', 'Tree publishing with simulated dry run', 'Bulk publishing from the popup workspace', 'Safe delete with reference warnings', 'Prod Guard typed confirmation protection'],
+      id: '03-authoring', label: '3', title: 'Authoring & Replication Governance', duration: 259,
+      description: 'Publish safely: pre-flight dependency checks, preview tier, page lock, tree/bulk publishing with dry runs, and Prod Guard.',
+      topics: ['Publish and unpublish with pre-flight reference detection', 'Cloud Preview tier replication', 'Locking and unlocking pages via Cmd+K with Touch UI status updates', 'Tree publishing with QueryBuilder dry run and skipped count', 'Bulk replication (up to 200 paths) with error isolation & retry', 'Safe delete with force=false reference warnings and Prod Guard'],
     },
     {
-      id: '04-devtools', label: '4', title: 'Developer tools', duration: 451,
-      description: 'Everything an AEM developer needs without leaving the page.',
-      topics: ['JCR tree inspector with real-time property filtering', 'Environment comparison and property-level diff', 'Component inspector with CRXDE Lite deep links', 'Highlight components and DAM / Content Fragment asset inspectors', 'Developer links, CDN cache headers, and overlay toggles', 'Hard reload bypassing browser and CDN cache'],
+      id: '04-devtools', label: '4', title: 'Developer Tools & Inspectors', duration: 349,
+      description: 'Expandable JCR tree, SHA-256 diff, component & DAM cards, Content Fragment headless JSON, dev links, overlays, and cache headers.',
+      topics: ['Viewport-bounded JCR tree with Expand All, Collapse All, search & path copy', 'Cross-environment SHA-256 comparison and Stage vs Dev property diff', 'Component inspector with CRXDE Lite, Model JSON & Infinity JSON links', 'Highlight components and DAM / Content Fragment headless JSON inspectors', 'Developer links, CDN cache header HIT/MISS inspection, hard reload & overlays'],
     },
     {
-      id: '05-sync', label: '5', title: 'Content synchronization', duration: 181,
-      description: 'Bi-directional content sync: pull from Prod, push to lower tiers, side-by-side diff, and version backup.',
-      topics: ['1-click content sync between environments', 'Direction safety: downward pull vs upward push protection', 'Side-by-side visual diff before applying sync', 'Automatic version snapshot before content overwrite', 'Instant rollback undo'],
+      id: '05-sync', label: '5', title: 'Content Synchronization', duration: 93,
+      description: 'Guardrailed cross-environment sync: downward Pull/Push safety, pre-sync diff, automatic version backup, and instant rollback.',
+      topics: ['1-click content sync between environments without CRX packages', 'Direction safety: higher -> lower protection vs upward override', 'Pre-sync visual property diff before writing target node', 'Automatic timestamped AEM version snapshot and instant Undo rollback', 'Pre-stage 404 to post-stage page creation from Prod CDN to Local'],
     },
     {
-      id: '06-seo', label: '6', title: 'SEO and accessibility audit', duration: 172,
-      description: 'In-page audit engine: Core Web Vitals, metadata, headings, alt text, link health, and score benchmarks.',
-      topics: ['Comprehensive SEO & a11y audit engine with score ring', 'Benchmarking optimized (92/100) vs unoptimized (32/100) pages', 'Broken 404 internal and external link detection', 'Export audit results as downloadable JSON report'],
+      id: '06-seo', label: '6', title: 'SEO & Accessibility Audits', duration: 82,
+      description: 'Viewport-bounded audit engine checking metadata, headings, alt text, duplicate DOM IDs, broken/unsized images, 404 links & JSON export.',
+      topics: ['1-click Audit action from QA/Dev toolbar or Cmd+K', 'Benchmarking passing (92/100) vs failing (32/100) pages', 'Duplicate DOM IDs, broken images, missing width/height dimensions & 404 links', 'Copy JSON and Export JSON audit reports for ticket workflows'],
     },
     {
-      id: '07-workspace', label: '7', title: 'Popup Workspace Console', duration: 198,
-      description: 'Complete extension workspace: fuzzy search, cross-env SHA-256 compare, recents, quick links, and CDN flush.',
-      topics: ['Fuzzy search across all extension operations and pages', 'Cross-environment page compare with SHA-256 content checksums', 'Recent pages history and bookmarked starred pages', 'Audit log export to CSV and batch find & replace', 'Instant CDN edge cache invalidation'],
+      id: '07-workspace', label: '7', title: 'Popup Workspace & QA Readiness', duration: 108,
+      description: 'Multi-page console with header Persona & Env switchers, QA Release Readiness, SHA-256 Diff Back/Copy, Versions & Find & Replace.',
+      topics: ['Header Persona switcher pill and clickable Environment badge', 'One-click QA Release Readiness checklist in QA/Dev persona', 'Cross-env SHA-256 compare with visual diff Back & Copy Diff JSON', 'Recent/starred page bookmarks with per-item cleanup & Version checkpoints', 'URL Variants, Quick Links, CSV Action Log, Find & Replace & Dispatcher Flush'],
     },
     {
-      id: '08-eds', label: '8', title: 'Edge Delivery Services & Universal Editor', duration: 170,
-      description: 'Franklin / EDS block-based authoring integration and Universal Editor workspace workflows.',
-      topics: ['Live EDS tier switcher between Preview (.aem.page) and Live (.aem.live)', 'Content source jump to underlying Google Drive / SharePoint docs', 'Universal Editor 1-click launch with IMS org resolution', 'Cloud Manager pipeline status and git repository links'],
+      id: '08-eds', label: '8', title: 'Edge Delivery Services & Universal Editor', duration: 56,
+      description: 'Bidirectional EDS (.aem.page / .aem.live) tier switching with query preservation, deduplicated Copy URLs, and Universal Editor canvas.',
+      topics: ['Deduplicated Universal Editor URL variants with IMS tenant mapping', 'EDS host detection (.aem.page preview vs .aem.live production)', 'Bidirectional EDS tier switching preserving query parameters', 'Direct Universal Editor visual canvas launch'],
     },
     {
-      id: '09-enterprise', label: '9', title: 'Enterprise governance & managed policies', duration: 137,
-      description: 'Enterprise zero-trust architecture, multi-brand site profiles, and Chrome managed-policy simulation.',
-      topics: ['Multi-brand site profiles with automatic root and mapping resolution', 'Zero-trust architecture: zero analytics, zero external calls', 'EnforceSessionAuthOnly: strict SSO session cookies, credentials disabled', 'ControlPolicy: centralized restriction of delete, sync, and dev mode', 'LockConfiguration: read-only policy banner and locked settings'],
+      id: '09-enterprise', label: '9', title: 'Enterprise Governance & Policies', duration: 71,
+      description: 'Multi-site brand profiles CRUD, zero-trust storage, SAML SSO enforcement, persona policy locking, and administrator configuration lockdown.',
+      topics: ['Multi-Site Brand Profiles CRUD resolving site roots & mappings dynamically', 'Zero-trust storage: zero telemetry, strict extension origin verification', 'EnforceSessionAuthOnly disabling local passwords and tokens', 'ControlPolicy & allowedPersonas locking out Developer persona', 'LockConfiguration read-only administrator banner & disabled Save'],
     },
     {
-      id: '10-settings', label: '10', title: 'Settings & Options Console', duration: 242,
-      description: 'The master Options configuration console covering all 13 setup and customization matrices.',
-      topics: ['3-step quick onboarding card and light/dark theme switcher', 'Settings export/import JSON and shareable team setup URLs', 'Per-environment host panels with live CSRF check and millisecond ping', 'Drag-and-drop toolbar button layout editor (Mini vs Expanded bar)', 'Developer Mode granular controls matrix and safety toggles'],
+      id: '10-settings', label: '10', title: 'Settings Console & 4 Personas', duration: 120,
+      description: 'Dynamic Author/QA/Dev/Custom settings cards, Customize-in-Custom cloning, Brand Profiles, 5-tier latency diagnostics & Toolbar Editor.',
+      topics: ['Dynamic 4-Persona switching (Author, QA, Dev, Custom) & Clone to Custom', '3-step Quick Setup card, themes & JSON backup/shareable setup URL', 'Per-env panels with CSRF check and 5-tier millisecond diagnostics', 'Live style switching (Orb vs Classic Mini-Bar) & Toolbar Customizer', 'Developer Mode granular toggles, QA verification switches & Factory Reset'],
     },
     {
-      id: '11-shortcuts', label: '11', title: 'Keyboard Shortcuts & Command Palette', duration: 93,
-      description: 'Power user keyboard workflows: Cmd+K Command Palette, Option+Shift+K toggle, and universal Escape dismissal.',
-      topics: ['Option+Shift+K instant toolbar collapse and expansion', 'Cmd+K / Ctrl+K Command Palette summoning from any page', 'Real-time fuzzy search and arrow key command execution', 'Type-ahead A-Z letter jumping across popover menus', 'Universal Escape dismissal of dialogs, inspectors, and modes'],
+      id: '11-shortcuts', label: '11', title: 'Keyboard Shortcuts & Command Palette', duration: 58,
+      description: 'Keyboard-first workflows: Option+Shift+K toggle, Cmd+K keyword-indexed search ranking, A-Z menu jumps & universal Escape dismissal.',
+      topics: ['Option+Shift+K instant toolbar collapse and expansion', 'Cmd+K / Ctrl+K Command Palette with keyword-indexed ranking (audit, jcr, persona)', 'Arrow Up/Down navigation & Enter instant execution', 'Type-ahead A-Z menu jumps and universal Escape cancellation'],
     },
   ]
 
@@ -122,7 +122,7 @@
     $('next').disabled = i === CHAPTERS.length - 1
     $('fallback').hidden = true
     player.poster = `posters/${c.id}.jpg`
-    player.src = `${VIDEO_BASE}${c.id}-v3.mp4`
+    player.src = `${VIDEO_BASE}${c.id}-v4.mp4`
     player.playbackRate = Number($('speed').value)
     history.replaceState(null, '', `#${c.id}`)
     document.title = `${c.title} · AEM Orbit video tutorial`

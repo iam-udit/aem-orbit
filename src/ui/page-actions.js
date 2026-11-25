@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Shared UI Action Controllers and Message Orchestrators.
  * @module ui/page-actions
@@ -8,6 +9,7 @@
  */
 
 import { confirmDialog, promptDialog } from './dialog.js';
+import { getExtApi } from '../shared/browser-compat.js';
 
 /** Dialog implementations; tests swap these because Node has no DOM. */
 export const ui = { confirm: confirmDialog, prompt: promptDialog };
@@ -34,7 +36,20 @@ export function createMessenger(getEnv) {
   return (action, payload = {}) => new Promise((resolve) => {
     const env  = getEnv();
     const full = env ? { env, ...payload } : payload;
-    chrome.runtime.sendMessage({ action, payload: full }, (r) => resolve(r || { ok: false, error: 'No response' }));
+    const api = getExtApi();
+    try {
+      const maybe = api?.runtime?.sendMessage?.({ action, payload: full }, (r) => {
+        const lastErr = api?.runtime?.lastError;
+        if (lastErr) return resolve({ ok: false, error: lastErr.message || 'Message failed' });
+        resolve(r || { ok: false, error: 'No response' });
+      });
+      // Promise-based WebExtension polyfills (when no callback runs or returned value is a Promise)
+      if (maybe && typeof maybe.then === 'function') {
+        maybe.then((r) => resolve(r || { ok: false, error: 'No response' })).catch((e) => resolve({ ok: false, error: e?.message || 'Message failed' }));
+      }
+    } catch (e) {
+      resolve({ ok: false, error: e?.message || 'Extension context invalidated' });
+    }
   });
 }
 

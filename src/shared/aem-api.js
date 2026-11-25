@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file AEM API Client & Storage Engine for AEM Orbit.
  * @module shared/aem-api
@@ -19,12 +20,14 @@
  *                          (device-local, never synced)
  */
 
-import { parsePageUrl, parseMappings, mapJcrToPublic, mapPublicToJcr, extractResourcePath, buildPageUrl, addRecent, parentPath, parseMsmPath, sameTierUrl, firstConfiguredEnv, getUniversalEditorUrl } from './url-utils.js';
+import { parsePageUrl, parseMappings, mapJcrToPublic, mapPublicToJcr, extractResourcePath, buildPageUrl, addRecent, parentPath, parseMsmPath, sameTierUrl, firstConfiguredEnv, getUniversalEditorUrl, normalizeHostUrl, resolveProfile } from './url-utils.js';
 import { isSyncAllowed } from './sync-direction.js';
 import { diffContent } from './content-diff.js';
 import { sessionExpiredMessage } from './auth-error.js';
 import { normalizePolicy, isControlAllowed, controlBlockedMessage } from './control-policy.js';
 import { POLICY_OVERRIDE } from './policy-override.js';
+import { compatStorageGet, compatStorageSet, createTimeoutSignal } from './browser-compat.js';
+import { resolvePersonaState, allowedPersonasForConfig } from './persona.js';
 
 export { parsePageUrl };
 
@@ -105,6 +108,19 @@ const CONFIG_DEFAULTS = {
     delete: true,
     sync: true,
   },
+  // Workspace persona: 'author' | 'qa' | 'dev' | 'custom' ('custom' keeps legacy defaults)
+  persona: 'custom',
+  // QA verification tool toggles (opt-in when in Custom mode; QA/Dev personas enable via preset)
+  qaToolsButtons: {
+    audit: false,
+    cache: false,
+    readiness: false,
+  },
+  // Multi-site / brand profiles ({ [id]: { label, contentRoot, appName, urlMappings, matchDomains } })
+  profiles: {},
+  activeProfile: null,
+  // Snapshot of custom feature flags preserved when switching into Author / QA / Dev presets
+  customSnapshot: null,
   // Theme of the Settings page and the toolbar: 'auto' (follow the browser theme), 'light' or 'dark'
   optionsTheme: 'auto',
   // Opt-in: show the classic horizontal minimized bar instead of the default floating orb
@@ -121,31 +137,25 @@ const CONFIG_DEFAULTS = {
 // ─── Storage ───────────────────────────────────────────────────────────────────
 
 /**
- * Promisified wrapper for chrome.storage read operations.
+ * Promisified cross-browser wrapper for storage read operations.
  *
- * @param {'sync'|'local'} area - Storage area name.
- * @param {object|string|string[]} keys - Storage keys to retrieve with defaults.
+ * @param {'sync'|'local'|'session'|'managed'} area - Storage area name.
+ * @param {object|string|string[]|null} keys - Storage keys to retrieve with defaults.
  * @returns {Promise<object>}
  */
 function storageGet(area, keys) {
-  // `session` may be missing (older Chrome, test doubles): behave as an empty area.
-  if (!chrome.storage[area]) return Promise.resolve(keys && typeof keys === 'object' && !Array.isArray(keys) ? { ...keys } : {});
-  // A failed read (e.g. no managed policy installed) leaves `lastError` set and the result undefined: treat it as empty.
-  return new Promise((resolve) => chrome.storage[area].get(keys, (r) => {
-    void chrome.runtime?.lastError;
-    resolve(r || {});
-  }));
+  return compatStorageGet(area, keys);
 }
 
 /**
- * Promisified wrapper for chrome.storage write operations.
+ * Promisified cross-browser wrapper for storage write operations.
  *
- * @param {'sync'|'local'} area - Storage area name.
+ * @param {'sync'|'local'|'session'} area - Storage area name.
  * @param {object} data - Key-value map to persist.
  * @returns {Promise<void>}
  */
 function storageSet(area, data) {
-  return new Promise((resolve) => chrome.storage[area].set(data, resolve));
+  return compatStorageSet(area, data);
 }
 
 /**
@@ -206,12 +216,17 @@ export async function getConfig() {
 
   const envs = {};
   keys.forEach((k) => {
-    envs[k] = {
+    const raw = {
       ...ENV_DEFAULTS,
       ...(CONFIG_DEFAULTS.environments[k] || {}),
       ...(storedEnvs[k] || {}),
       ...pickSecrets(secrets[k]),
     };
+    raw.authorHost     = normalizeHostUrl(raw.authorHost);
+    raw.publishHost    = normalizeHostUrl(raw.publishHost);
+    raw.previewHost    = normalizeHostUrl(raw.previewHost);
+    raw.dispatcherHost = normalizeHostUrl(raw.dispatcherHost);
+    envs[k] = raw;
   });
 
   if (managed?.enforceSessionAuthOnly) {
@@ -232,7 +247,7 @@ export async function getConfig() {
 
   // Admin control policy comes from managed storage only, never from the user's own (editable) settings.
   const controlPolicy = normalizePolicy(managed.controlPolicy);
-  const merged = {
+  const rawMerged = {
     ...CONFIG_DEFAULTS,
     ...data,
     ...managed,
@@ -244,8 +259,36 @@ export async function getConfig() {
     profiles: managed?.profiles || data?.profiles || {},
     activeProfile: data?.activeProfile || null,
   };
-  if (!isControlAllowed(controlPolicy, 'developerMode')) merged.enableDevMode = false;
-  return merged;
+  const personaState = resolvePersonaState({
+    ...rawMerged,
+    persona: data?.persona || managed?.defaultPersona || 'custom',
+    allowedPersonas: managed?.allowedPersonas,
+  });
+  return {
+    ...rawMerged,
+    persona: personaState.persona,
+    allowedPersonas: personaState.allowedPersonas,
+    enableDevMode: personaState.effectiveDevMode,
+    devToolsButtons: personaState.devToolsButtons,
+    qaToolsButtons: personaState.qaToolsButtons,
+    qaMode: personaState.qaMode,
+  };
+}
+
+/**
+ * Persists a workspace persona switch if permitted by lock/managed policy.
+ *
+ * @param {'author'|'qa'|'dev'|'custom'} nextPersona - Desired persona key.
+ * @returns {Promise<{ok:boolean, persona?:string, error?:string}>}
+ */
+export async function savePersonaPreference(nextPersona) {
+  const cfg = await getConfig();
+  const allowed = allowedPersonasForConfig(cfg);
+  if (!allowed.includes(nextPersona)) {
+    return { ok: false, error: `Persona "${nextPersona}" is not permitted by administrator policy.` };
+  }
+  await storageSet('sync', { persona: nextPersona });
+  return { ok: true, persona: nextPersona };
 }
 
 /**
@@ -365,15 +408,20 @@ async function getCsrfToken(cfg) {
  * @returns {Promise<boolean>} true when the host is redirecting to a login page
  */
 async function redirectsToLogin(cfg) {
+  const host = normalizeHostUrl(cfg.authorHost);
+  if (!host) return false;
+  const sig = createTimeoutSignal(5000);
   try {
-    const res = await fetch(`${cfg.authorHost}/libs/granite/csrf/token.json`, {
+    const res = await fetch(`${host}/libs/granite/csrf/token.json`, {
       credentials: 'include',
       redirect: 'manual',
-      signal: AbortSignal.timeout(5000),
+      signal: sig.signal,
     });
     return res.type === 'opaqueredirect';
   } catch {
     return false;
+  } finally {
+    sig.cancel();
   }
 }
 
@@ -390,7 +438,8 @@ async function redirectsToLogin(cfg) {
  * @returns {Promise<{ok:boolean, status?:number, data?:any, text?:string, error?:string}>}
  */
 export async function aemRequest(cfg, path, { method = 'GET', form = null, json = true, csrf = true } = {}) {
-  if (!cfg.authorHost) return { ok: false, error: 'Author host not configured for this environment.' };
+  const host = normalizeHostUrl(cfg.authorHost);
+  if (!host) return { ok: false, error: 'Author host not configured for this environment.' };
   const timeoutMs = await requestTimeoutMs();
 
   const headers = { Accept: json ? 'application/json' : '*/*' };
@@ -415,11 +464,12 @@ export async function aemRequest(cfg, path, { method = 'GET', form = null, json 
   // Reads are retried (twice, with exponential backoff) on a transient failure (network blip, 502/503/504 from the CDN or a
   // restarting author). Writes are never retried: a POST may already have been applied.
   const canRetry = method === 'GET';
-  const sessionExpired = { ok: false, status: 401, error: sessionExpiredMessage(cfg.authorHost) };
+  const sessionExpired = { ok: false, status: 401, error: sessionExpiredMessage(host) };
   let res;
   for (let attempt = 0; ; attempt++) {
+    const sig = createTimeoutSignal(timeoutMs);
     try {
-      res = await fetch(`${cfg.authorHost}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      res = await fetch(`${host}${path}`, { ...init, signal: sig.signal });
     } catch (e) {
       if (e?.name === 'TimeoutError') return { ok: false, error: `Request timed out — AEM did not respond within ${timeoutMs / 1000}s.` };
       if (canRetry && attempt < RETRY_ATTEMPTS) { await backoff(attempt); continue; }
@@ -427,6 +477,8 @@ export async function aemRequest(cfg, path, { method = 'GET', form = null, json 
       // that cross-origin redirect and only reports a network error, so check for it before giving up.
       if (cfg.authType === 'session' && await redirectsToLogin(cfg)) return sessionExpired;
       return { ok: false, error: 'Network error — is the host reachable and permission granted?' };
+    } finally {
+      sig.cancel();
     }
     if (canRetry && attempt < RETRY_ATTEMPTS && TRANSIENT_STATUSES.has(res.status)) { await backoff(attempt); continue; }
     break;
@@ -782,6 +834,15 @@ function cleanEntry(env, path, title) {
   return { env: String(env), path: String(path), title: String(title || '').slice(0, 200), ts: Date.now() };
 }
 
+/**
+ * Appends a page visit to the deduplicated device-local recent-pages list.
+ *
+ * @async
+ * @param {string} env - Environment key.
+ * @param {string} path - JCR `/content/...` path.
+ * @param {string} title - Page title for display.
+ * @returns {Promise<{ok:boolean, error?:string}>}
+ */
 export async function recordRecent(env, path, title) {
   if (!env || !/^\/content\//.test(path || '')) return { ok: false, error: 'Invalid page.' };
   const { recent = [] } = await storageGet('local', { recent: [] });
@@ -810,11 +871,23 @@ export async function logAction(entry) {
   await storageSet('local', { actionLog: [clean, ...actionLog].slice(0, ACTION_LOG_MAX) });
 }
 
+/**
+ * Returns the device-local audit trail of AEM actions.
+ *
+ * @async
+ * @returns {Promise<{ok:true, entries:object[]}>}
+ */
 export async function getActionLog() {
   const { actionLog = [] } = await storageGet('local', { actionLog: [] });
   return { ok: true, entries: actionLog };
 }
 
+/**
+ * Clears all stored entries from the device-local action log.
+ *
+ * @async
+ * @returns {Promise<{ok:true}>}
+ */
 export async function clearActionLog() {
   await storageSet('local', { actionLog: [] });
   return { ok: true };
@@ -830,6 +903,34 @@ export async function toggleFavourite(env, path, title) {
     : addRecent(favourites, cleanEntry(env, path, title), FAVOURITES_MAX);
   await storageSet('local', { favourites: next });
   return { ok: true, favourite: !exists };
+}
+
+/**
+ * Removes a single entry from the `recent` or `favourites` device-local list.
+ *
+ * @param {'recent'|'favourites'} listName - Target list key.
+ * @param {string} env - Environment identifier.
+ * @param {string} path - JCR path.
+ * @returns {Promise<{ok:boolean}>}
+ */
+export async function removePageListItem(listName, env, path) {
+  if (listName !== 'recent' && listName !== 'favourites') return { ok: false, error: 'Unknown list.' };
+  const cur = await storageGet('local', { [listName]: [] });
+  const next = (cur[listName] || []).filter((item) => !(item.env === env && item.path === path));
+  await storageSet('local', { [listName]: next });
+  return { ok: true };
+}
+
+/**
+ * Clears either the `recent` or `favourites` device-local list.
+ *
+ * @param {'recent'|'favourites'} listName - Target list key.
+ * @returns {Promise<{ok:boolean}>}
+ */
+export async function clearPageList(listName) {
+  if (listName !== 'recent' && listName !== 'favourites') return { ok: false, error: 'Unknown list.' };
+  await storageSet('local', { [listName]: [] });
+  return { ok: true };
 }
 
 /**
@@ -1156,7 +1257,7 @@ export async function previewTreeDeactivate(envName, jcrPath) {
   const { cfg } = await getEnvConfig(envName);
   const plan = await planTreePublish(cfg, jcrPath);
   if (!plan.ok) return plan;
-  return { ok: true, count: plan.paths.length, skipped: 0, sample: plan.paths.slice(0, 8) };
+  return { ok: true, count: plan.paths.length, skipped: plan.skipped, sample: plan.paths.slice(0, 8) };
 }
 
 /**
@@ -1234,14 +1335,19 @@ function validImsOrg(org) {
  * @param {string} envName
  * @param {string} jcrPath
  */
-export async function getUrlVariants(envName, jcrPath) {
+export async function getUrlVariants(envName, jcrPath, pageUrl = '') {
   const { cfg, config } = await getEnvConfig(envName);
-  const publicPath = mapJcrToPublic(jcrPath, parseMappings(config.urlMappings));
+  const profile = resolveProfile(pageUrl || jcrPath, config.profiles, config.activeProfile);
+  const activeMappings = profile?.urlMappings ?? config.urlMappings;
+  const publicPath = mapJcrToPublic(jcrPath, parseMappings(activeMappings));
   const publishPath = cfg.publishUsesMappings === true ? publicPath : jcrPath;
   const cdnOpts = { html: cfg.dispatcherOmitHtml !== true };
   // Publish / Preview behind a dispatcher/CDN (mappings applied) follow the same extension rule
   const publishOpts = cfg.publishUsesMappings === true ? cdnOpts : {};
-  const a = cfg.authorHost;
+  const a = normalizeHostUrl(cfg.authorHost);
+  const pubHost = normalizeHostUrl(cfg.publishHost);
+  const prvHost = normalizeHostUrl(cfg.previewHost);
+  const cdnHost = normalizeHostUrl(cfg.dispatcherHost);
   return {
     authorEditUrl:     a ? `${a}/editor.html${jcrPath}.html` : '',
     authorTouchUrl:    a ? `${a}${jcrPath}.html` : '',
@@ -1261,13 +1367,13 @@ export async function getUrlVariants(envName, jcrPath) {
     jcrJsonUrl:        a ? `${a}${jcrPath}/jcr:content.infinity.json` : '',
     debugClientLibsUrl: a ? `${a}${jcrPath}.html?wcmmode=disabled&debugClientLibs=true` : '',
     // Publish / preview use the public path only when a dispatcher/CDN is in front of them
-    publishUrl:        buildPageUrl(cfg.publishHost, publishPath, publishOpts),
-    previewUrl:        buildPageUrl(cfg.previewHost, publishPath, publishOpts),
-    dispatcherUrl:     buildPageUrl(cfg.dispatcherHost, publicPath, cdnOpts),
+    publishUrl:        buildPageUrl(pubHost, publishPath, publishOpts),
+    previewUrl:        buildPageUrl(prvHost, publishPath, publishOpts),
+    dispatcherUrl:     buildPageUrl(cdnHost, publicPath, cdnOpts),
     // What visitors see: the CDN when one is configured, otherwise the Publish tier
-    liveUrl:           cfg.dispatcherHost
-      ? buildPageUrl(cfg.dispatcherHost, publicPath, cdnOpts)
-      : buildPageUrl(cfg.publishHost, publishPath, publishOpts),
+    liveUrl:           cdnHost
+      ? buildPageUrl(cdnHost, publicPath, cdnOpts)
+      : buildPageUrl(pubHost, publishPath, publishOpts),
   };
 }
 
@@ -1284,19 +1390,21 @@ export async function getUrlVariants(envName, jcrPath) {
  */
 export async function resolveLocaleUrls(envName, urls, mode = {}) {
   const config = await getConfig();
-  const mappings = parseMappings(config.urlMappings);
   const pagePath = (url) => {
     const known = parsePageUrl(url, config).jcrPath;
     if (known) return known;
     let u;
     try { u = new URL(url); } catch { return null; }
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-    return mapPublicToJcr(extractResourcePath(u), mappings, config.contentRoot);
+    const profile = resolveProfile(url, config.profiles, config.activeProfile);
+    const mappings = parseMappings(profile?.urlMappings ?? config.urlMappings);
+    const root = profile?.contentRoot || config.contentRoot;
+    return mapPublicToJcr(extractResourcePath(u), mappings, root);
   };
   return Promise.all((urls || []).slice(0, 200).map(async (url) => {
     const jcrPath = pagePath(url);
     if (!jcrPath) return url;
-    const variants = await getUrlVariants(envName, jcrPath);
+    const variants = await getUrlVariants(envName, jcrPath, url);
     return sameTierUrl(variants, mode.tier, !!mode.inEditor, !!mode.wcmDisabled) || url;
   }));
 }
@@ -1593,7 +1701,7 @@ async function writeContent(cfg, jcrPath, content) {
   if (!res.ok || !current.ok) return res.ok ? { ok: true } : res;
 
   const leftovers = Object.entries(current.data || {})
-    .filter(([k, v]) => !(k in content) && k !== 'jcr:primaryType' && !SYNC_STRIP_PROPS.test(k) && (v === null || typeof v !== 'object'))
+    .filter(([k, v]) => !(k in content) && k !== 'jcr:primaryType' && !SYNC_STRIP_PROPS.test(k) && (v === null || typeof v !== 'object' || Array.isArray(v)))
     .map(([k]) => k);
   if (!leftovers.length) return { ok: true };
   const del = new URLSearchParams({ _charset_: 'utf-8' });
@@ -1728,6 +1836,13 @@ export async function findAcrossPages(envName, rootPath, searchTerm, { propertyN
   const matches = [];
   const lowerSearch = searchTerm.toLowerCase();
 
+  /**
+   * Recursively walks a JCR node subtree collecting property matches for `searchTerm`.
+   *
+   * @param {string} pagePath - Owning page JCR path.
+   * @param {string} nodePath - Current node JCR path.
+   * @param {object} obj - Deserialized node JSON object.
+   */
   function scanNode(pagePath, nodePath, obj) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
     for (const [k, v] of Object.entries(obj)) {
@@ -1807,8 +1922,9 @@ export async function replaceAcrossPages(envName, replacements) {
   }
 
   let updatedCount = 0;
+  const stamp = Date.now();
   for (const [pagePath, props] of pages) {
-    const backup = await createVersion(envName, pagePath, 'before-find-replace');
+    const backup = await createVersion(envName, pagePath, `before-find-replace-${stamp}`);
     if (!backup.ok) { failed.push(pagePath); continue; }
 
     for (const { nodePath, propName, whole, items, propPath } of props.values()) {
@@ -1949,6 +2065,39 @@ export async function getContentFragmentInfo(envName, jcrPath) {
 }
 
 /**
+ * Probes a non-author tier host using HEAD with a GET fallback on HTTP 405.
+ *
+ * @param {string} hostUrl - Normalized tier base URL.
+ * @returns {Promise<{checked:boolean, ok?:boolean, status?:number, latencyMs?:number, error?:string}>}
+ */
+async function probeTierHost(hostUrl) {
+  const result = { checked: true };
+  const t0 = Date.now();
+  const base = normalizeHostUrl(hostUrl);
+  const sig = createTimeoutSignal(5000);
+  try {
+    let r = await fetch(`${base}/`, { method: 'HEAD', signal: sig.signal });
+    if (r.status === 405) {
+      const sig2 = createTimeoutSignal(5000);
+      try {
+        r = await fetch(`${base}/`, { method: 'GET', signal: sig2.signal });
+      } finally {
+        sig2.cancel();
+      }
+    }
+    result.latencyMs = Math.max(1, Date.now() - t0);
+    result.ok = r.ok || (r.status >= 200 && r.status < 400);
+    result.status = r.status;
+  } catch (e) {
+    result.ok = false;
+    result.error = e?.message || 'Network error';
+  } finally {
+    sig.cancel();
+  }
+  return result;
+}
+
+/**
  * Run a multi-tier health diagnostic for an environment (Author, CSRF, Publish, Preview, Dispatcher).
  * @param {string} envName
  * @param {object} [cfgOverride]  Unsaved options-form values (Options page only); defaults to the saved config.
@@ -1988,56 +2137,10 @@ export async function runDiagnostics(envName, cfgOverride) {
     );
   }
 
-  // 2. Publish
-  if (cfg.publishHost) {
-    tasks.push((async () => {
-      out.publish.checked = true;
-      const t0 = Date.now();
-      try {
-        const r = await fetch(`${cfg.publishHost}/`, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        out.publish.latencyMs = Math.max(1, Date.now() - t0);
-        out.publish.ok = r.ok || (r.status >= 200 && r.status < 400);
-        out.publish.status = r.status;
-      } catch (e) {
-        out.publish.ok = false;
-        out.publish.error = e?.message;
-      }
-    })());
-  }
-
-  // 3. Preview
-  if (cfg.previewHost) {
-    tasks.push((async () => {
-      out.preview.checked = true;
-      const t0 = Date.now();
-      try {
-        const r = await fetch(`${cfg.previewHost}/`, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        out.preview.latencyMs = Math.max(1, Date.now() - t0);
-        out.preview.ok = r.ok || (r.status >= 200 && r.status < 400);
-        out.preview.status = r.status;
-      } catch (e) {
-        out.preview.ok = false;
-        out.preview.error = e?.message;
-      }
-    })());
-  }
-
-  // 4. Dispatcher
-  if (cfg.dispatcherHost) {
-    tasks.push((async () => {
-      out.dispatcher.checked = true;
-      const t0 = Date.now();
-      try {
-        const r = await fetch(`${cfg.dispatcherHost}/`, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        out.dispatcher.latencyMs = Math.max(1, Date.now() - t0);
-        out.dispatcher.ok = r.ok || (r.status >= 200 && r.status < 400);
-        out.dispatcher.status = r.status;
-      } catch (e) {
-        out.dispatcher.ok = false;
-        out.dispatcher.error = e?.message;
-      }
-    })());
-  }
+  // 2. Publish, 3. Preview, 4. Dispatcher
+  if (cfg.publishHost)    tasks.push(probeTierHost(cfg.publishHost).then((r) => { out.publish = r; }));
+  if (cfg.previewHost)    tasks.push(probeTierHost(cfg.previewHost).then((r) => { out.preview = r; }));
+  if (cfg.dispatcherHost) tasks.push(probeTierHost(cfg.dispatcherHost).then((r) => { out.dispatcher = r; }));
 
   await Promise.allSettled(tasks);
   return out;

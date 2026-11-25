@@ -396,3 +396,31 @@ test('no login target for other failures or for environments not using Browser S
   route('.json', () => respond({ status: 401, text: '', type: 'text/plain' }));
   assert.equal((await send({ action: 'GET_PAGE_STATUS', payload: { env: 'dev', jcrPath: PAGE } })).login, undefined); // dev uses basic auth
 });
+
+test('FLUSH_DISPATCHER and REPLACE_ACROSS_PAGES enforce confirmation on protected environments', async () => {
+  const fBlocked = await send({ action: 'FLUSH_DISPATCHER', payload: { env: 'prod', path: PAGE } });
+  assert.equal(fBlocked.ok, false);
+  assert.match(fBlocked.error, /Confirmation required/);
+
+  const rBlocked = await send({
+    action: 'REPLACE_ACROSS_PAGES',
+    payload: { env: 'prod', rootPath: PAGE, replacements: [{ propPath: `${PAGE}/jcr:content/jcr:title`, newValue: 'X' }] },
+  });
+  assert.equal(rBlocked.ok, false);
+  assert.match(rBlocked.error, /Confirmation required/);
+});
+
+test('SET_PERSONA, REMOVE_PAGE_LIST_ITEM, CLEAR_PAGE_LIST, and profile quick links work via router', async () => {
+  const sp = await send({ action: 'SET_PERSONA', payload: { persona: 'qa' } });
+  assert.equal(sp.ok, true);
+  assert.equal(stores.sync.persona, 'qa');
+
+  await send({ action: 'RECORD_RECENT', payload: { env: 'dev', jcrPath: PAGE, title: 'Home' } });
+  await send({ action: 'REMOVE_PAGE_LIST_ITEM', payload: { list: 'recent', env: 'dev', jcrPath: PAGE } });
+  assert.equal((await send({ action: 'GET_PAGE_LISTS' })).recent.length, 0);
+
+  stores.sync.profiles = { wknd: { contentRoot: '/content/wknd', appName: 'wknd' } };
+  const ql = await send({ action: 'GET_QUICK_LINKS', payload: { env: 'dev', jcrPath: '/content/wknd/us/en' } });
+  assert.equal(ql.ok, true);
+  assert.ok(ql.links.some((l) => l.url.includes('/apps/wknd')));
+});

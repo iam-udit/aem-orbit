@@ -35,11 +35,12 @@ Final output: `video/out/orbit-for-aem-walkthrough.mp4` (full, ~15-18 min) + a ~
   - Active release files are copied/promoted to `<id>.mp4`, with `-final.mp4` symlinks pointing to `<id>.mp4`.
   - This ensures `tutorial.js` metadata and release URLs remain permanent and version-agnostic.
 - **Deliverables**:
-  - Full Walkthrough: `video/out/orbit-for-aem-walkthrough.mp4` (44.77 min, 1920x1080 @ 60fps) with 13 embedded native MP4 chapter markers.
-  - Highlights Cut: `video/out/orbit-for-aem-highlights.mp4` (~3.3 min, 1920x1080 @ 60fps).
+  - Full Walkthrough (`v4` canonical): `video/out/orbit-for-aem-walkthrough-v4.mp4` and `video/out/orbit-for-aem-walkthrough.mp4` (`1806.80s` / `30.11 min`, `178.6 MB`, `1920x1080` @ `60fps`) with 13 embedded native MP4 chapter markers. (`orbit-for-aem-walkthrough-v3.mp4` preserved untouched.)
+  - Highlights Cut (`v4` canonical): `video/out/orbit-for-aem-highlights-v4.mp4` and `video/out/orbit-for-aem-highlights.mp4` (`192.02s` / `3.20 min`, `21.0 MB`, `1920x1080` @ `60fps`).
+  - Overview Teaser (`v4` canonical): `video/out/orbit-for-aem-teaser-1min-v4.mp4` and `video/out/orbit-for-aem-teaser-1min.mp4` (`55.00s`, `6.1 MB`, `1920x1080` @ `60fps`).
   - Tutorial Page: `docs/tutorial/` (`index.html`, `tutorial.css`, `tutorial.js`, `posters/*.jpg`, `videos/`).
-  - All 13 v3 chapter scripts: `video/chapters/*-v3.mjs`.
-  - Batch orchestration script: `video/scripts/record-all-v3.mjs`.
+  - All 13 chapter scripts: `video/chapters/*.mjs` (`00-intro.mjs` through `11-shortcuts.mjs`, unversioned filenames; legacy `*-v2.mjs`/`*-v3.mjs` script duplicates removed).
+  - Batch orchestration & assembly scripts: `video/scripts/record-all.mjs`, `video/scripts/assemble-walkthrough.mjs`, `video/scripts/build-teaser.mjs`.
 
 ### 4. Code & Architecture Standards
 - **Options Policy Banner Placement**: In `src/options/options.js`, the managed policy banner (`lockBanner`) must be inserted *after* `.topbar` via `topbar.after(banner)` with clean margin (`margin: 0 0 20px; box-sizing: border-box;`) to prevent overlapping with the sticky topbar.
@@ -79,8 +80,7 @@ Final output: `video/out/orbit-for-aem-walkthrough.mp4` (full, ~15-18 min) + a ~
 - Chrome for Testing 158 (needed for `--load-extension`) at `video/build/browser/`, CDP `127.0.0.1:9333`, profile `/tmp/orbit-chrome-profile`.
 
 ### AEM instances (8 total) - how they were built, how to restart
-- Servers dir: `/Users/udit.nayak/UDIT/Projects/IAM-UDIT - Workspace/Servers` (sibling of the repo). Local 4502/4503 are the user's own
-  instances (not in that folder). Dev/Stage/Prod authors are `dev/ stage/ prod/` (jar `aem-author-p45x2.jar`, unpacked from
+- Servers dir: `../Servers` (sibling directory of the repo). Local 4502/4503 are separate local instances (not in that folder). Dev/Stage/Prod authors are `dev/ stage/ prod/` (jar `aem-author-p45x2.jar`, unpacked from
   `aem-author-p4502.jar`); publishers are `dev-publish/ stage-publish/ prod-publish/` (jar `aem-publish-p45x3.jar`).
 - Start one (fully detached from the tool shell): `python3 ../Servers/launch.py dev 4512 author`, `... dev-publish 4513 publish`,
   `... stage 4522 author`, `... stage-publish 4523 publish`, `... prod 4532 author`, `... prod-publish 4533 publish`.
@@ -191,20 +191,20 @@ Two voice-over settings are in play. The user wants to compare them on the finis
 | # | Chapter | File | State |
 |---|---|---|---|
 | 0 | Frame-size fix verification | `video/work/size-test.mjs` | DONE - 1673/1673 frames 1920x1080 over 4 new-tab follow/back cycles |
-| 0b | Intro: what AEM Orbit is (title card held, ends on the Orb) | `chapters/00-intro-v3.mjs` | DONE (screen mode) - **v3**: `00-intro-v3.mp4` (98.8s, Christopher Neural, +3%, jointed acronyms, styled blue pill ~3.5s then untitle, welcome voice note) |
-| 1 | Orb & HUD: fan + 7 leaves + env switch + JCR search | `chapters/01-orb-v3.mjs` | DONE (screen mode) - **v3**: `01-orb-v3.mp4` (219.5s, Christopher Neural, +3%, jointed acronyms, auto-dismissing pill ~3.5s, welcome voice note, direct JCR close button click) |
-| 1b | Position drag/persist, long-press summon + Esc, Orb vs Mini-Bar | `chapters/01b-orb-position-v3.mjs` | DONE (screen mode) - **v3**: `01b-orb-position-v3.mp4` (167.2s, Christopher Neural, +3%, jointed acronyms, auto-dismissing pill ~3.5s, welcome voice note) |
-| 2 | Toolbar & navigation (pill, tier switcher, env switching Shift/Cmd-click, MSM/locales, status panel, toasts+Undo) | `chapters/02-toolbar-v3.mjs` | DONE (screen mode) - **v3**: `02-toolbar-v3.mp4` (260.4s, Christopher Neural, +3%, jointed acronyms, auto-dismissing pill ~3.5s, clean draft reset for undo action, welcome voice note) |
-| 3 | Authoring & replication (publish/unpublish, pre-flight, preview tier, lock, tree publish + dry run, bulk, safe delete, Prod Guard) | `chapters/03-authoring-v3.mjs` | DONE (screen mode) - **v3**: `03-authoring-v3.mp4` (365.1s, Christopher Neural, +3%, jointed acronyms, styled blue pill ~3.5s then untitle, bulk dry run results fully visible, Touch UI editor page locking with pre/post status visualization, welcome voice note) |
-| 4 | Developer tools (component/DAM/CFM/cache inspectors, JCR tree, overlays, highlighting, deep links, hard reload) | `chapters/04-devtools-v3.mjs` | DONE (screen mode) - **v3**: `04-devtools-v3.mp4` (450.5s, Christopher Neural, +3%, auto-dismissing pill ~3.5s, CFM demonstrated, zero hover tooltips/bottom pills, welcome voice note) |
-| 5 | Content sync (pull/push, direction safety, diff, version backup, undo) | `chapters/05-sync-v3.mjs` | DONE (screen mode) - **v3**: `05-sync-v3.mp4` (181.3s, Christopher Neural, +3%, auto-dismissing pill ~3.5s, pre-stage 404 & post-stage sync from www.wknd.com, welcome voice note) |
-| 6 | SEO & a11y audit (good page vs bad page, link health) | `chapters/06-seo-v3.mjs` | DONE (screen mode) - **v3**: `06-seo-v3.mp4` (172.2s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, good page 92/100 vs bad page 32/100, 404 broken link detection, zero desktop glitch, welcome voice note) |
-| 7 | Popup Workspace (search, compare + SHA-256, recents/stars, versions, URL variants, quick links, audit log CSV, find&replace, flush) | `chapters/07-workspace-v3.mjs` | DONE (screen mode) - **v3**: `07-workspace-v3.mp4` (197.5s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, all popup action results scrolled smoothly into full view, welcome voice note) |
-| 8 | EDS + Universal Editor (mock `.aem.page/.aem.live` via CDP interception; show UE/Cloud Manager deep links without loading Adobe IMS) | `chapters/08-eds-v3.mjs` | DONE (screen mode) - **v3**: `08-eds-v3.mp4` (169.7s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, all popup results scrolled smoothly into full view, welcome voice note) |
-| 9 | Enterprise & policy (managed-policy simulation: lockConfiguration, enforceSessionAuthOnly, controlPolicy; brand profiles) | `chapters/09-enterprise-v3.mjs` | DONE (screen mode) - **v3**: `09-enterprise-v3.mp4` (136.5s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, product fix for admin banner overlap, full auth section scrolled to center, welcome voice note) |
-| 10 | Settings matrix via real Options page (start with `seed-settings.mjs --bare` to show first-run setup) | `chapters/10-settings-v3.mjs` | DONE (screen mode) - **v3**: `10-settings-v3.mp4` (234.2s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, live pre/post demonstration of settings on real AEM pages, welcome voice note) |
-| 11 | Keyboard shortcuts (Cmd+K palette, Alt+Shift+K, Esc, arrows+Enter, letter jump) | `chapters/11-shortcuts-v3.mjs` | DONE (screen mode) - **v3**: `11-shortcuts-v3.mp4` (92.8s, Christopher Neural, +3%, styled blue pill ~3.5s then untitle, all 5 keyboard features demonstrated, welcome voice note) |
-| 12 | Assemble: intro/outro cards, concat chapters -> final mp4, 3-min highlights, coverage check, `npm run check`, cleanup | `video/scripts/assemble-walkthrough.mjs` | DONE - `orbit-for-aem-walkthrough.mp4` (2745.6s / 45.76 min, 241.9 MB, 13 embedded MP4 chapters), `orbit-for-aem-highlights.mp4` (198.0s / 3.3 min, 14.5 MB), 13 tutorial posters & symlinks, 266/266 tests pass, eslint clean |
+| 0b | Intro: cross-browser & 4-Persona architecture (Author, QA, Dev, Custom) | `chapters/00-intro.mjs` | DONE (screen mode) - **v4**: `00-intro-v4.mp4` (96.8s, 5805 frames, 8.19 MB, `v3` preserved) |
+| 1 | Orb & Persona Fan: QA vs Custom leaves, env switch, Expand/Collapse JCR | `chapters/01-orb.mjs` | DONE (screen mode) - **v4**: `01-orb-v4.mp4` (172.7s, 10363 frames, 15.47 MB, `v3` preserved) |
+| 1b | Position drag/persist across edges, long-press summon + Esc, Orb vs Mini-Bar | `chapters/01b-orb-position.mjs` | DONE (screen mode) - **v4**: `01b-orb-position-v4.mp4` (129.9s, 7794 frames, 11.09 MB, `v3` preserved) |
+| 2 | Toolbar & Personas: More-menu QA switch, tiers, Shift/Cmd-click, scrollable 20-locale MSM list, toasts | `chapters/02-toolbar.mjs` | DONE (screen mode) - **v4**: `02-toolbar-v4.mp4` (210.5s, 12628 frames, 19.86 MB, `v3` preserved) |
+| 3 | Authoring & replication: pre-flight, preview, lock via Cmd+K, tree dry run, bulk, delete, Prod Guard | `chapters/03-authoring.mjs` | DONE (screen mode) - **v4**: `03-authoring-v4.mp4` (258.8s, 15526 frames, 19.03 MB, `v3` preserved) |
+| 4 | Developer tools: Expand/Collapse JCR + copy path, Stage diff, component/DAM/CFM/cache inspectors, links | `chapters/04-devtools.mjs` | DONE (screen mode) - **v4**: `04-devtools-v4.mp4` (349.4s, 20963 frames, 33.41 MB, `v3` preserved) |
+| 5 | Content sync: pull/push safety, pre-sync diff, version backup, instant Undo, Prod CDN -> Local creation | `chapters/05-sync.mjs` | DONE (screen mode) - **v4**: `05-sync-v4.mp4` (92.7s, 5562 frames, 8.30 MB, `v3` preserved) |
+| 6 | SEO & a11y audit: 92/100 vs 32/100, duplicate DOM IDs, broken/unsized images, 404 links, Copy/Export JSON | `chapters/06-seo.mjs` | DONE (screen mode) - **v4**: `06-seo-v4.mp4` (82.2s, 4933 frames, 8.47 MB, `v3` preserved) |
+| 7 | Popup Workspace: header Persona/Env switchers, QA Readiness, Diff Back/Copy, bookmarks, CSV, F&R, flush | `chapters/07-workspace.mjs` | DONE (screen mode) - **v4**: `07-workspace-v4.mp4` (108.3s, 6500 frames, 11.11 MB, `v3` preserved) |
+| 8 | EDS & Universal Editor: deduplicated Copy URLs, `.aem.page`/`.aem.live` query retention, UE canvas | `chapters/08-eds.mjs` | DONE (screen mode) - **v4**: `08-eds-v4.mp4` (56.0s, 3361 frames, 3.72 MB, `v3` preserved) |
+| 9 | Enterprise & policy: Brand Profiles CRUD, `allowedPersonas`, `enforceSessionAuthOnly`, `controlPolicy`, `lockConfiguration` | `chapters/09-enterprise.mjs` | DONE (screen mode) - **v4**: `09-enterprise-v4.mp4` (71.1s, 4266 frames, 8.08 MB, `v3` preserved) |
+| 10 | Settings Console: dynamic 4-Persona cards, Clone to Custom, Brand Profiles, 5-tier diagnostics, Toolbar Editor | `chapters/10-settings.mjs` | DONE (screen mode) - **v4**: `10-settings-v4.mp4` (120.0s, 7197 frames, 17.58 MB, `v3` preserved) |
+| 11 | Keyboard shortcuts: `Option+Shift+K`, `Cmd+K` keyword search ranking (`audit`, `jcr`), A-Z jumps, `Esc` | `chapters/11-shortcuts.mjs` | DONE (screen mode) - **v4**: `11-shortcuts-v4.mp4` (58.5s, 3509 frames, 5.97 MB, `v3` preserved) |
+| 12 | Assemble v4: 13-chapter concat, 3.2-min highlights, 55s teaser, posters, tutorial player, E2E + unit checks | `video/scripts/assemble-walkthrough.mjs` | DONE - `orbit-for-aem-walkthrough-v4.mp4` (1806.80s / 30.11 min, 178.6 MB, 13 markers), `orbit-for-aem-highlights-v4.mp4` (192.02s, 21.0 MB), `orbit-for-aem-teaser-1min-v4.mp4` (55.00s, 6.1 MB) |
 
 Test content still to create under `/content/wknd/us/en/orbit-demo` (Local + other envs where needed): parent + 3-4 children (tree
 publish/dry run); page referencing an unpublished page and asset (pre-flight); lock/unlock + safe-delete pages; page with a
@@ -226,9 +226,30 @@ Per-chapter acceptance: (1) log shows no "step failed", (2) `ffprobe` says 1920x
 (3) run `node video/scripts/verify-chapter.mjs <id>` -> must print OK (checks codec/size/fps, audio length, every frame 1920x1080), (4) at most one small contact sheet viewed.
 
 ## Last session notes
+- **Full v4 Regeneration & Feature Expansion (`00-intro-v4` through `11-shortcuts-v4`, Assembly, Highlights & Teaser):**
+  - Authored and recorded all 13 v4 chapters via unversioned script paths (`video/chapters/00-intro.mjs` .. `video/chapters/11-shortcuts.mjs`, removing legacy `*-v2.mjs`/`*-v3.mjs` scripts) in 1920x1080 / 60fps screen mode using Voice A (`en-US-ChristopherNeural` +3%) with jointed acronyms and initial ~3.5s title pills:
+    - `00-intro-v4.mp4`: `96.8s` (`5805` frames, `8.19 MB`)
+    - `01-orb-v4.mp4`: `172.7s` (`10363` frames, `15.47 MB`)
+    - `01b-orb-position-v4.mp4`: `129.9s` (`7794` frames, `11.09 MB`)
+    - `02-toolbar-v4.mp4`: `210.5s` (`12628` frames, `19.86 MB`)
+    - `03-authoring-v4.mp4`: `258.8s` (`15526` frames, `19.03 MB`)
+    - `04-devtools-v4.mp4`: `349.4s` (`20963` frames, `33.41 MB`)
+    - `05-sync-v4.mp4`: `92.7s` (`5562` frames, `8.30 MB`)
+    - `06-seo-v4.mp4`: `82.2s` (`4933` frames, `8.47 MB`)
+    - `07-workspace-v4.mp4`: `108.3s` (`6500` frames, `11.11 MB`)
+    - `08-eds-v4.mp4`: `56.0s` (`3361` frames, `3.72 MB`)
+    - `09-enterprise-v4.mp4`: `71.1s` (`4266` frames, `8.08 MB`)
+    - `10-settings-v4.mp4`: `120.0s` (`7197` frames, `17.58 MB`)
+    - `11-shortcuts-v4.mp4`: `58.5s` (`3509` frames, `5.97 MB`)
+  - Showcased all new capabilities in v4: 4 Workspace Personas (`Author`, `QA`, `Developer`, `Custom`) across Settings/Orb/Toolbar/Popup/Policies (`allowedPersonas`, `personaCloneCustom`), viewport-bounded scrollable menus (`fitFloatingBox` with 20-locale MSM list, JCR, Audit, Palette), Expand/Collapse All JCR buttons + click-to-copy paths, Audit duplicate DOM IDs / broken images / unsized image dimensions / Copy JSON, Popup header Persona/Env switchers & QA Readiness + Diff Back/Copy, deduplicated EDS/UE links, Multi-Site Brand Profiles CRUD, Command Palette label-over-keyword ranking (`src/content/content-script.js`), and cross-browser Chrome/Edge/Firefox MV3/Safari architecture.
+  - Assembled canonical v4 deliverables via `video/scripts/assemble-walkthrough.mjs` and `video/scripts/build-teaser.mjs` (orchestrated via `video/scripts/record-all.mjs`):
+    - Walkthrough: `video/out/orbit-for-aem-walkthrough-v4.mp4` (+ `orbit-for-aem-walkthrough.mp4`) — `1806.80s` (`30.11 min`), `178.6 MB`, 13 embedded chapters.
+    - Highlights: `video/out/orbit-for-aem-highlights-v4.mp4` (+ `orbit-for-aem-highlights.mp4`) — `192.02s` (`3.20 min`), `21.0 MB`.
+    - Teaser: `video/out/orbit-for-aem-teaser-1min-v4.mp4` (+ `orbit-for-aem-teaser-1min.mp4`) — `55.00s`, `6.1 MB`.
+  - Updated `docs/tutorial/tutorial.js` (`*-v4.mp4`, updated topics & durations), `docs/tutorial/README.md`, `docs/tutorial/posters/*.jpg`, `video/FEATURES.md`, `video/HANDOFF.md`, and `README.md`.
 - **Chapter 03 Re-record (Bulk Publish Dry Run Visibility Fix) & Final Assembly:**
   - **Chapter 03 Re-record (`03-authoring-v2.mp4`, 342.1s, 20,529 frames @ 60fps, 1080p)**:
-    - **Bulk Dry Run Result Visibility Fix**: In [03-authoring-v2.mjs](file:///Users/udit.nayak/UDIT/Projects/IAM-UDIT%20-%20Workspace/aem-orbit/video/chapters/03-authoring-v2.mjs), updated step 19 after clicking `#bulkDryRun` to programmatically scroll the popup window, `#mainPanel`, `#panelContent`, and `#bulkDryRunResults` completely down to the bottom (`r.scrollIntoView({ block: 'end' })`), then moved mouse directly to the dry run results row, making the entire dry run preview table (50 pages, draft badges) 100% visible on screen.
+    - **Bulk Dry Run Result Visibility Fix**: In `video/chapters/03-authoring.mjs` (originally `v2`), updated the step after clicking `#bulkDryRun` to programmatically scroll the popup window, `#mainPanel`, `#panelContent`, and `#bulkDryRunResults` completely down to the bottom (`r.scrollIntoView({ block: 'end' })`), then moved mouse directly to the dry run results row, making the entire dry run preview table (50 pages, draft badges) 100% visible on screen.
     - Also added `scrollIntoView` for `#bulkInput` in `pasteBulk` and `#bulkPublish` to ensure buttons remain centered and accessible before subsequent actions.
     - Updated `src/popup/popup.js` line 815 so `#bulkDryRunResults` automatically calls `scrollIntoView({ block: 'nearest', behavior: 'smooth' })`.
     - Applied the standard title pill rule: displayed for ~3.5s and dismissed cleanly via `await rec.untitle()`.
@@ -240,7 +261,7 @@ Per-chapter acceptance: (1) log shows no "step failed", (2) `ffprobe` says 1920x
     - All 266 unit tests passing (`npm test`), 0 eslint errors.
 - **Chapter 00 Re-record (Title Pill Rule Fix) & Final Assembly:**
   - **Chapter 00 Re-record (`00-intro-v2.mp4`, 98.9s, 5,933 frames @ 60fps, 1080p)**:
-    - Fixed chapter title card duration in [00-intro-v2.mjs](file:///Users/udit.nayak/UDIT/Projects/IAM-UDIT%20-%20Workspace/aem-orbit/video/chapters/00-intro-v2.mjs). Previously passed `ms = 0` holding the pill across steps 1 through 6 (~80 seconds). Changed to standard pattern: `await rec.title('Chapter 0 · <b>Introduction</b> &amp; Architecture', 'Author, publish, and CDN in one unified floating control surface')` displayed for ~3.5s, then dismissed via `await rec.untitle()`.
+    - Fixed chapter title card duration in `video/chapters/00-intro.mjs` (originally `v2`). Previously passed `ms = 0` holding the pill across steps 1 through 6 (~80 seconds). Changed to standard pattern: `await rec.title('Chapter 0 · <b>Introduction</b> &amp; Architecture', 'Author, publish, and CDN in one unified floating control surface')` displayed for ~3.5s, then dismissed via `await rec.untitle()`.
     - Verified OK via `node video/scripts/verify-chapter.mjs 00-intro-v2`. Visual inspection of 4x3 contact sheet confirmed title card appears only in the initial 3.5 seconds and is 100% absent across all subsequent frames.
   - **Re-assembly of Walkthrough & Highlights (`video/scripts/assemble-walkthrough.mjs`)**:
     - **Walkthrough Video**: `video/out/orbit-for-aem-walkthrough.mp4` (2,685.1s / 44.75 min, 227.9 MB, 1920x1080 @ 60fps, AAC 48kHz). 13 native MP4 chapter markers embedded.

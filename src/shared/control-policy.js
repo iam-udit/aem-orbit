@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Admin control policy: which controls a team's members may use.
  * @module shared/control-policy

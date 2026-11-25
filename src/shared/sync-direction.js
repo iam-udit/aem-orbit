@@ -1,5 +1,7 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
- * Which way content may be copied between environments.
+ * @file Which way content may be copied between environments.
+ * @module shared/sync-direction
  *
  * "Higher" means later in the environment order from Settings (default: local, dev, stage, prod).
  * By default content may only flow DOWN (from a higher environment to a lower one, e.g. prod → stage).

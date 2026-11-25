@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Applies the saved theme to a page and keeps it up to date (Settings page, popup and toolbar).
  * @module shared/theme-dom
@@ -8,8 +9,11 @@
  */
 
 import { normalizeTheme, resolveTheme } from './theme.js';
+import { getExtApi } from './browser-compat.js';
 
 /**
+ * Applies and watches the user's `optionsTheme` setting (`auto`, `light`, or `dark`)
+ * across browser color-scheme switches and `storage.onChanged` updates.
  * @param {unknown} initialChoice Saved choice ('auto', 'light' or 'dark'; anything else is 'auto').
  * @param {(theme: 'light'|'dark', choice: 'auto'|'light'|'dark') => void} [onApply] Called after every change.
  * @returns {{set: (choice: unknown) => void, stop: () => void}}
@@ -17,6 +21,7 @@ import { normalizeTheme, resolveTheme } from './theme.js';
 export function syncTheme(initialChoice, onApply) {
   let choice = normalizeTheme(initialChoice);
   const mq = window.matchMedia('(prefers-color-scheme: light)');
+  const api = getExtApi();
 
   const apply = () => {
     const theme = resolveTheme(choice, mq.matches);
@@ -30,15 +35,15 @@ export function syncTheme(initialChoice, onApply) {
     apply();
   };
 
-  mq.addEventListener('change', onDevice);
-  try { chrome.storage.onChanged.addListener(onStorage); } catch { /* extension context gone */ }
+  if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onDevice);
+  try { api?.storage?.onChanged?.addListener(onStorage); } catch { /* extension context gone */ }
   apply();
 
   return {
     set(next) { choice = normalizeTheme(next); apply(); },
     stop() {
-      mq.removeEventListener('change', onDevice);
-      try { chrome.storage.onChanged.removeListener(onStorage); } catch { /* extension context gone */ }
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onDevice);
+      try { api?.storage?.onChanged?.removeListener(onStorage); } catch { /* extension context gone */ }
     },
   };
 }

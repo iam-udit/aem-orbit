@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Extension Options Page Script for AEM Orbit.
  * @module options/options
@@ -13,6 +14,11 @@ import { nextTheme } from '../shared/theme.js';
 import { syncTheme } from '../shared/theme-dom.js';
 import { logoSpiralPaths } from '../shared/spiral.js';
 import { ITEM_BY_ID, TOOLBAR_ITEMS, MAX_ITEMS, defaultLayout, normalizeLayout, isDefaultLayout } from '../shared/toolbar-layout.js';
+import { PERSONAS, PERSONA_DEFS, PERSONA_LAYOUTS, DEFAULT_DEV_BUTTONS, normalizePersona, allowedPersonasForConfig } from '../shared/persona.js';
+import {
+  getExtApi, compatStorageGet, compatStorageSet, compatStorageRemove, compatStorageClear,
+  requestOriginsCompat, copyToClipboard,
+} from '../shared/browser-compat.js';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -26,15 +32,40 @@ const SHARED_FIELDS  = ['contentRoot', 'appName', 'imsOrg', 'urlMappings', 'requ
 const TOGGLES        = ['showOnAuthor', 'showOnPublish', 'showOnDispatcher', 'confirmDelete', 'enableKeyboardShortcut', 'showLastModified', 'enableDevMode', 'classicBar', 'summonOnLongPress', 'customizeToolbar', 'allowUpwardSync', 'confirmPublish', 'notifyOnActions', 'sessionOnlyCredentials'];
 const OFF_BY_DEFAULT = ['enableDevMode', 'classicBar', 'summonOnLongPress', 'customizeToolbar', 'allowUpwardSync', 'confirmPublish', 'sessionOnlyCredentials'];
 const DEV_BTN_KEYS   = ['jcr', 'overlays', 'highlight', 'inspect', 'tools', 'reload', 'delete', 'sync'];
+const QA_BTN_KEYS    = ['audit', 'cache', 'readiness'];
 
 const BUILTIN_LABELS = { local: 'Local', dev: 'Dev', stage: 'Stage', prod: 'Prod' };
 
-// In-memory state
-let customEnvIds = [];  // e.g. ['custom_1', 'custom_2']
-let envOrder     = [...BUILTIN_ENVS]; // ordered list of all env keys
-let dirty        = false; // true when the form has edits that are not saved yet
-let tbLayout     = defaultLayout(); // toolbar layout being edited: {mini: [ids], expanded: [ids]}
+/** Returns default custom configuration matching legacy shipped behavior. */
+function defaultCustomSnapshot() {
+  return {
+    showOnAuthor: true,
+    showOnPublish: true,
+    showOnDispatcher: true,
+    allowUpwardSync: false,
+    enableDevMode: false,
+    customizeToolbar: false,
+    devToolsButtons: { ...DEFAULT_DEV_BUTTONS },
+    qaToolsButtons: { audit: false, cache: false, readiness: false },
+    toolbarLayout: null,
+  };
+}
 
+// In-memory state
+let customEnvIds   = [];  // e.g. ['custom_1', 'custom_2']
+let envOrder       = [...BUILTIN_ENVS]; // ordered list of all env keys
+let dirty          = false; // true when the form has edits that are not saved yet
+let tbLayout       = defaultLayout(); // toolbar layout being edited: {mini: [ids], expanded: [ids]}
+let selectedPersona = 'custom';
+let customSnapshot = defaultCustomSnapshot();
+let policyAllowedPersonas = [...PERSONAS];
+let isConfigLocked = false;
+let isDevPolicyBlocked = false;
+let profilesMap    = {};
+let activeProfileId = '';
+let editingProfileId = null;
+
+/** Marks settings as having unsaved changes and toggles the unsaved indicator. */
 function setDirty(value) {
   dirty = value;
   const note = document.getElementById('dirtyNote');
@@ -44,8 +75,19 @@ function setDirty(value) {
 // ─── Messaging ────────────────────────────────────────────────────────────────
 
 function msg(action, payload = {}) {
+  const api = getExtApi();
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ action, payload }, (r) => resolve(r || { ok: false, error: 'No response' }));
+    try {
+      const maybe = api?.runtime?.sendMessage?.({ action, payload }, (r) => {
+        if (api?.runtime?.lastError) return resolve({ ok: false, error: api.runtime.lastError.message || 'No response' });
+        resolve(r || { ok: false, error: 'No response' });
+      });
+      if (maybe && typeof maybe.then === 'function') {
+        maybe.then((r) => resolve(r || { ok: false, error: 'No response' })).catch((e) => resolve({ ok: false, error: e?.message || 'No response' }));
+      }
+    } catch {
+      resolve({ ok: false, error: 'No response' });
+    }
   });
 }
 
@@ -199,6 +241,7 @@ function bindAuthSelector(env) {
   });
 }
 
+/** Shows credential input fields matching the chosen authentication mode for `env`. */
 function showAuthFields(env, type) {
   ['basic', 'bearer', 'session', 'none'].forEach((t) => {
     const el = document.getElementById(`${env}-${t}-fields`);
@@ -206,11 +249,13 @@ function showAuthFields(env, type) {
   });
 }
 
+/** Returns the active authentication mode string (`basic`|`bearer`|`session`|`none`) for `env`. */
 function getSelectedAuthType(env) {
   const btn = document.querySelector(`.auth-selector[data-env="${env}"] .auth-option.selected`);
   return btn?.dataset.type || 'basic';
 }
 
+/** Selects the authentication mode pill in the UI and displays its fields. */
 function setSelectedAuthType(env, type) {
   const selector = document.querySelector(`.auth-selector[data-env="${env}"]`);
   if (!selector) return;
@@ -415,6 +460,7 @@ function bindCustomPanel(envId, panel) {
   });
 }
 
+/** Creates a tab button element for a custom AEM environment. */
 function buildCustomTab(envId, label) {
   const tab = document.createElement('button');
   tab.className    = 'tab tab-custom';
@@ -433,6 +479,7 @@ document.getElementById('btn-add-env').addEventListener('click', () => {
   setDirty(true);
 });
 
+/** Registers a custom AEM environment tab, panel, and ordering entry in the Settings DOM. */
 function addCustomEnvToDOM(envId, label) {
   customEnvIds.push(envId);
   if (!envOrder.includes(envId)) envOrder.push(envId);
@@ -459,6 +506,7 @@ function addCustomEnvToDOM(envId, label) {
   });
 }
 
+/** Prompts the user and removes a custom environment tab and configuration state. */
 async function deleteCustomEnv(envId) {
   if (!(await ui.confirm({ title: 'Remove environment', message: 'Remove this custom environment? Its settings will be lost.', tone: 'danger', confirmLabel: 'Remove' }))) return;
 
@@ -477,9 +525,9 @@ async function deleteCustomEnv(envId) {
 
 function loadSettings() {
   Promise.all([
-    new Promise((r) => chrome.storage.sync.get(null, r)),
-    new Promise((r) => chrome.storage.local.get({ secrets: {} }, r)),
-    new Promise((r) => chrome.storage.session.get({ secrets: {} }, r)),
+    compatStorageGet('sync', null),
+    compatStorageGet('local', { secrets: {} }),
+    compatStorageGet('session', { secrets: {} }),
   ]).then(([data, local, session]) => {
     const secrets = { ...(local.secrets || {}), ...(session.secrets || {}) };
     // Shared fields
@@ -500,12 +548,35 @@ function loadSettings() {
       const el = document.getElementById(`devBtn-${k}`);
       if (el) el.checked = devBtns[k] !== false;
     });
-    // Show/hide the dev-buttons section based on current toggle state
-    toggleDevBtnSection();
+    // QA tools button visibility (opt-in defaults false in custom mode)
+    const qaBtns = data.qaToolsButtons || {};
+    QA_BTN_KEYS.forEach((k) => {
+      const el = document.getElementById(`qaBtn-${k}`);
+      if (el) el.checked = qaBtns[k] === true;
+    });
     tbLayout = normalizeLayout(data.toolbarLayout);
-    toggleToolbarSection();
-    renderToolbarEditor();
+
+    // Initialize Custom snapshot before applying active persona preset
+    const baseCustom = defaultCustomSnapshot();
+    customSnapshot = data.customSnapshot && typeof data.customSnapshot === 'object'
+      ? {
+        ...baseCustom,
+        ...data.customSnapshot,
+        devToolsButtons: { ...DEFAULT_DEV_BUTTONS, ...(data.customSnapshot.devToolsButtons || {}) },
+        qaToolsButtons: { ...baseCustom.qaToolsButtons, ...(data.customSnapshot.qaToolsButtons || {}) },
+      }
+      : captureCustomFromForm();
+
+    selectedPersona = normalizePersona(data.persona);
+    applyPersonaToForm(selectedPersona, { capturePrevious: false, silent: true });
     updateOrbSummonSetting();
+
+    // Multi-site profiles
+    profilesMap = (data.profiles && typeof data.profiles === 'object' && !Array.isArray(data.profiles))
+      ? { ...data.profiles }
+      : {};
+    activeProfileId = typeof data.activeProfile === 'string' ? data.activeProfile : '';
+    renderProfilesSection();
 
     const envData   = data.environments || {};
 
@@ -563,6 +634,30 @@ async function showPolicyNotice() {
   const config = await msg('GET_CONFIG');
   if (!config) return;
 
+  if (config.profiles && Object.keys(config.profiles).length && Object.keys(profilesMap).length === 0) {
+    profilesMap = { ...config.profiles };
+    renderProfilesSection();
+  }
+
+  isConfigLocked = !!config.lockConfiguration;
+  policyAllowedPersonas = allowedPersonasForConfig(config);
+
+  const personaNote = document.getElementById('personaPolicyNote');
+  if (personaNote) {
+    if (policyAllowedPersonas.length < PERSONAS.length) {
+      personaNote.textContent = `Allowed roles under team policy: ${policyAllowedPersonas.map((p) => PERSONA_DEFS[p].label).join(', ')}.`;
+      personaNote.style.display = '';
+    } else {
+      personaNote.style.display = 'none';
+    }
+  }
+  if (!policyAllowedPersonas.includes(selectedPersona)) {
+    selectedPersona = policyAllowedPersonas[0] || 'author';
+    applyPersonaToForm(selectedPersona, { capturePrevious: false, silent: true });
+    setDirty(false);
+  }
+  syncPersonaCardStates();
+
   if (config.lockConfiguration) {
     let banner = document.getElementById('lockBanner');
     if (!banner) {
@@ -581,12 +676,18 @@ async function showPolicyNotice() {
     document.querySelectorAll('input:not([type="button"]), select, textarea').forEach((el) => {
       el.disabled = true;
     });
+    document.querySelectorAll('.auth-option, .btn-add-env, .btn-delete-env, .persona-card, #personaCloneCustom, #tbReset, .tb-ctl, #addProfileBtn, #reset, #clearAll, #importSettings').forEach((el) => {
+      el.disabled = true;
+    });
+    document.querySelectorAll('#env-order-list .order-item').forEach((item) => {
+      item.draggable = false;
+    });
     const saveBtn = document.getElementById('save');
     if (saveBtn) saveBtn.disabled = true;
   }
 
   if (config.enforceSessionAuthOnly) {
-    document.querySelectorAll('.auth-option[data-type="session"]').forEach((b) => b.click());
+    [...BUILTIN_ENVS, ...customEnvIds].forEach((env) => setSelectedAuthType(env, 'session'));
     document.querySelectorAll('.auth-option:not([data-type="session"])').forEach((b) => {
       b.disabled = true;
       b.style.opacity = '0.5';
@@ -598,16 +699,17 @@ async function showPolicyNotice() {
   if (!note || !controlPolicy) return;
   const everywhere = controlPolicy.disabledControls || [];
   const perEnv = Object.entries(controlPolicy.byEnvironment || {});
-  if (!everywhere.length && !perEnv.length) return;
+  if (everywhere.length || perEnv.length) {
+    const names = (ids) => ids.map((id) => CONTROLS[id]?.label || id).join(', ');
+    const parts = [];
+    if (everywhere.length) parts.push(`Turned off for your team: ${names(everywhere)}.`);
+    perEnv.forEach(([env, rule]) => parts.push(`Turned off on ${env}: ${names(rule.disabledControls)}.`));
+    note.textContent = `Set by your administrator and not changeable here. ${parts.join(' ')}`;
+    note.style.display = '';
+  }
 
-  const names = (ids) => ids.map((id) => CONTROLS[id]?.label || id).join(', ');
-  const parts = [];
-  if (everywhere.length) parts.push(`Turned off for your team: ${names(everywhere)}.`);
-  perEnv.forEach(([env, rule]) => parts.push(`Turned off on ${env}: ${names(rule.disabledControls)}.`));
-  note.textContent = `Set by your administrator and not changeable here. ${parts.join(' ')}`;
-  note.style.display = '';
-
-  if (!isControlAllowed(controlPolicy, 'developerMode')) {
+  isDevPolicyBlocked = !isControlAllowed(controlPolicy, 'developerMode');
+  if (isDevPolicyBlocked) {
     const toggle = document.getElementById('enableDevMode');
     if (toggle) {
       toggle.checked = false;
@@ -624,7 +726,7 @@ function saveSettings() {
   // Host access must be requested synchronously inside the click (user gesture).
   const origins = formOriginPatterns();
   const permPromise = origins.length
-    ? chrome.permissions.request({ origins }).catch(() => false)
+    ? requestOriginsCompat(origins)
     : Promise.resolve(true);
 
   const data = {};
@@ -646,14 +748,28 @@ function saveSettings() {
     const el = document.getElementById(key);
     if (el) data[key] = el.checked;
   });
-  // Developer mode per-button config
-  data.devToolsButtons = {};
-  DEV_BTN_KEYS.forEach((k) => {
-    const el = document.getElementById(`devBtn-${k}`);
-    data.devToolsButtons[k] = el ? el.checked : true;
-  });
-  // null = the built-in layout, so buttons added in a later version still appear for people who never customised
-  data.toolbarLayout = isDefaultLayout(tbLayout) ? null : normalizeLayout(tbLayout);
+
+  data.persona = selectedPersona;
+  data.profiles = { ...profilesMap };
+  data.activeProfile = activeProfileId || null;
+
+  if (selectedPersona === 'custom') {
+    customSnapshot = captureCustomFromForm();
+  }
+  data.customSnapshot = customSnapshot;
+
+  // Persist developer/QA/layout fields cleanly — custom uses form state, presets persist customSnapshot alongside preset persona
+  data.devToolsButtons = { ...(selectedPersona === 'custom' ? captureDevButtonsFromForm() : customSnapshot.devToolsButtons) };
+  data.qaToolsButtons = { ...(selectedPersona === 'custom' ? captureQaButtonsFromForm() : customSnapshot.qaToolsButtons) };
+  data.enableDevMode = selectedPersona === 'custom' ? !!document.getElementById('enableDevMode')?.checked : customSnapshot.enableDevMode;
+  data.customizeToolbar = selectedPersona === 'custom' ? !!document.getElementById('customizeToolbar')?.checked : customSnapshot.customizeToolbar;
+  data.showOnAuthor = selectedPersona === 'custom' ? !!document.getElementById('showOnAuthor')?.checked : customSnapshot.showOnAuthor;
+  data.showOnPublish = selectedPersona === 'custom' ? !!document.getElementById('showOnPublish')?.checked : customSnapshot.showOnPublish;
+  data.showOnDispatcher = selectedPersona === 'custom' ? !!document.getElementById('showOnDispatcher')?.checked : customSnapshot.showOnDispatcher;
+  data.allowUpwardSync = selectedPersona === 'custom' ? !!document.getElementById('allowUpwardSync')?.checked : customSnapshot.allowUpwardSync;
+  data.toolbarLayout = selectedPersona === 'custom'
+    ? (isDefaultLayout(tbLayout) ? null : normalizeLayout(tbLayout))
+    : customSnapshot.toolbarLayout;
 
   // Persist the current visual order from the DOM (drag may have changed it)
   data.envOrder = [...document.querySelectorAll('#env-order-list .order-item')]
@@ -701,9 +817,9 @@ function saveSettings() {
     // "Keep credentials for this browser session only": memory-only storage, cleared when the browser closes.
     // The secrets go to one area only, so turning the option on or off moves them (never copies).
     const sessionOnly = data.sessionOnlyCredentials === true;
-    await new Promise((r) => chrome.storage[sessionOnly ? 'session' : 'local'].set({ secrets }, r));
-    await new Promise((r) => chrome.storage[sessionOnly ? 'local' : 'session'].remove('secrets', r));
-    await new Promise((r) => chrome.storage.sync.set(data, r));
+    await compatStorageSet(sessionOnly ? 'session' : 'local', { secrets });
+    await compatStorageRemove(sessionOnly ? 'local' : 'session', 'secrets');
+    await compatStorageSet('sync', data);
     await msg('SYNC_CONTENT_SCRIPTS');
 
     setDirty(false);
@@ -725,28 +841,32 @@ function destroyAllCustomEnvDOM() {
   envOrder     = [...BUILTIN_ENVS];
 }
 
+/** Prompts for confirmation and resets synced settings and stored credentials to defaults. */
 async function resetSettings() {
   if (!(await ui.confirm({ title: 'Reset settings', message: 'Reset all settings to defaults?', tone: 'warn', confirmLabel: 'Reset' }))) return;
-  chrome.storage.local.remove('secrets');
-  chrome.storage.session.remove('secrets');
-  chrome.storage.sync.clear(() => {
-    destroyAllCustomEnvDOM();
-    activateTab('local');
-    loadSettings();
-    showBanner('success', '✓ Reset to defaults.');
-  });
+  await Promise.all([
+    compatStorageRemove('local', 'secrets'),
+    compatStorageRemove('session', 'secrets'),
+    compatStorageClear('sync'),
+  ]);
+  destroyAllCustomEnvDOM();
+  activateTab('local');
+  loadSettings();
+  showBanner('success', '✓ Reset to defaults.');
 }
 
+/** Prompts for confirmation and wipes all local, session, and synced AEM Orbit storage. */
 async function clearAll() {
   if (!(await ui.confirm({ title: 'Clear all data', message: 'Clear ALL AEM Orbit data? This cannot be undone.', tone: 'danger', confirmLabel: 'Clear all' }))) return;
-  chrome.storage.local.clear();
-  chrome.storage.session.clear();
-  chrome.storage.sync.clear(() => {
-    destroyAllCustomEnvDOM();
-    activateTab('local');
-    loadSettings();
-    showBanner('success', '✓ All data cleared.');
-  });
+  await Promise.all([
+    compatStorageClear('local'),
+    compatStorageClear('session'),
+    compatStorageClear('sync'),
+  ]);
+  destroyAllCustomEnvDOM();
+  activateTab('local');
+  loadSettings();
+  showBanner('success', '✓ All data cleared.');
 }
 
 // ─── Connection test ──────────────────────────────────────────────────────────
@@ -764,7 +884,7 @@ async function testConnection(env) {
   }
 
   // Request host access inside the click gesture before doing anything async.
-  const granted = await chrome.permissions.request({ origins: [pattern] }).catch(() => false);
+  const granted = await requestOriginsCompat([pattern]);
   if (!granted) {
     dot.className    = 'dot fail';
     statusEl.textContent = 'Host access not granted.';
@@ -803,6 +923,7 @@ const DIAG_TIERS = [
   ['dispatcher', 'Dispatcher / CDN'],
 ];
 
+/** Builds a single diagnostic result row (`Author`, `CSRF token`, `Publish`, etc.). */
 function diagRow(label, state, detail) {
   const row = document.createElement('div');
   row.className = 'diag-row';
@@ -818,6 +939,7 @@ function diagRow(label, state, detail) {
   return row;
 }
 
+/** Executes multi-tier connectivity & CSRF diagnostics against all configured hosts of `env`. */
 async function runDiagnostics(env) {
   const list = document.getElementById(`${env}-diagList`);
   const btn  = document.getElementById(`${env}-diagBtn`);
@@ -837,7 +959,7 @@ async function runDiagnostics(env) {
     return;
   }
   // Host access has to be requested inside the click gesture.
-  const granted = await chrome.permissions.request({ origins: [...new Set(patterns)] }).catch(() => false);
+  const granted = await requestOriginsCompat([...new Set(patterns)]);
   if (!granted) {
     list.append(diagRow('Hosts', 'fail', 'Host access not granted.'));
     return;
@@ -857,7 +979,7 @@ async function runDiagnostics(env) {
     const ms = r.latencyMs ? `${r.latencyMs} ms` : '';
     const detail = r.ok
       ? [key === 'csrf' ? 'Token issued' : 'Reachable', r.status ? `HTTP ${r.status}` : '', ms].filter(Boolean).join(' · ')
-      : (r.error ? 'Failed' : `Failed${r.status ? ` · HTTP ${r.status}` : ''}`);
+      : [r.error || 'Failed', r.status ? `HTTP ${r.status}` : ''].filter(Boolean).join(' · ');
     list.append(diagRow(label, r.ok ? 'ok' : 'fail', detail));
   });
   if (!list.children.length) list.append(diagRow('Hosts', 'fail', 'Nothing to check — no hosts set.'));
@@ -901,6 +1023,244 @@ function applyTheme(theme, choice) {
   }
 }
 
+// ─── Persona & Brand Profiles UI synchronization ─────────────────────────────
+
+function captureDevButtonsFromForm() {
+  const out = {};
+  DEV_BTN_KEYS.forEach((k) => {
+    const el = document.getElementById(`devBtn-${k}`);
+    out[k] = el ? el.checked : true;
+  });
+  return out;
+}
+
+/** Reads QA verification checkboxes (`qaBtn-*`) from the Options form. */
+function captureQaButtonsFromForm() {
+  const out = {};
+  QA_BTN_KEYS.forEach((k) => {
+    const el = document.getElementById(`qaBtn-${k}`);
+    out[k] = el ? el.checked : false;
+  });
+  return out;
+}
+
+/** Captures the current Custom persona flags, button toggles, and toolbar layout from the form. */
+function captureCustomFromForm() {
+  return {
+    showOnAuthor: document.getElementById('showOnAuthor')?.checked !== false,
+    showOnPublish: document.getElementById('showOnPublish')?.checked !== false,
+    showOnDispatcher: document.getElementById('showOnDispatcher')?.checked !== false,
+    allowUpwardSync: document.getElementById('allowUpwardSync')?.checked === true,
+    enableDevMode: document.getElementById('enableDevMode')?.checked === true,
+    customizeToolbar: document.getElementById('customizeToolbar')?.checked === true,
+    devToolsButtons: captureDevButtonsFromForm(),
+    qaToolsButtons: captureQaButtonsFromForm(),
+    toolbarLayout: isDefaultLayout(tbLayout) ? null : normalizeLayout(tbLayout),
+  };
+}
+
+/** Updates a checkbox's value and disabled/preset-locked UI state. */
+function setToggleField(id, value, locked) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.checked = !!value;
+  el.disabled = !!locked || isConfigLocked;
+  el.closest('.toggle-row')?.classList.toggle('is-disabled', !!locked || isConfigLocked);
+}
+
+/** Synchronizes persona card active/ARIA/disabled states against policy constraints. */
+function syncPersonaCardStates() {
+  document.querySelectorAll('#personaGrid .persona-card').forEach((card) => {
+    const p = card.dataset.persona;
+    const allowed = policyAllowedPersonas.includes(p);
+    const active = p === selectedPersona;
+    card.classList.toggle('active', active);
+    card.setAttribute('aria-checked', String(active));
+    card.disabled = isConfigLocked || !allowed;
+    card.title = allowed ? PERSONA_DEFS[p].summary : 'Disabled by administrator policy';
+  });
+}
+
+/**
+ * Dynamically updates all Settings sections and fields when switching between
+ * Author, QA, Developer, and Custom personas.
+ */
+function applyPersonaToForm(nextPersona, { capturePrevious = true, silent = false } = {}) {
+  const target = normalizePersona(nextPersona);
+  if (capturePrevious && selectedPersona === 'custom' && target !== 'custom') {
+    customSnapshot = captureCustomFromForm();
+  }
+  selectedPersona = target;
+  syncPersonaCardStates();
+
+  const banner = document.getElementById('personaPresetBanner');
+  const bannerTxt = document.getElementById('personaPresetText');
+  const qaGrp = document.getElementById('qaGroupLabel');
+  const qaSec = document.getElementById('qaSection');
+  const devGrp = document.getElementById('devModeGroupLabel');
+  const devSec = document.getElementById('devModeSection');
+
+  if (target === 'custom') {
+    if (banner) banner.hidden = true;
+    setToggleField('showOnAuthor', customSnapshot.showOnAuthor, false);
+    setToggleField('showOnPublish', customSnapshot.showOnPublish, false);
+    setToggleField('showOnDispatcher', customSnapshot.showOnDispatcher, false);
+    setToggleField('enableDevMode', isDevPolicyBlocked ? false : customSnapshot.enableDevMode, isDevPolicyBlocked);
+    setToggleField('customizeToolbar', customSnapshot.customizeToolbar, false);
+    DEV_BTN_KEYS.forEach((k) => setToggleField(`devBtn-${k}`, customSnapshot.devToolsButtons?.[k] !== false, false));
+    QA_BTN_KEYS.forEach((k) => setToggleField(`qaBtn-${k}`, customSnapshot.qaToolsButtons?.[k] === true, false));
+    setToggleField('allowUpwardSync', customSnapshot.allowUpwardSync, false);
+    tbLayout = normalizeLayout(customSnapshot.toolbarLayout);
+    if (qaGrp) qaGrp.style.display = '';
+    if (qaSec) qaSec.style.display = '';
+    if (devGrp) devGrp.style.display = '';
+    if (devSec) devSec.style.display = '';
+    toggleDevBtnSection();
+    toggleToolbarSection();
+    renderToolbarEditor();
+  } else {
+    const def = PERSONA_DEFS[target];
+    if (banner) {
+      banner.hidden = false;
+      const layoutPreview = PERSONA_LAYOUTS[target]?.expanded?.map((id) => ITEM_BY_ID[id]?.label || id).join(', ') || '';
+      if (bannerTxt) bannerTxt.textContent = `${def.label} preset active (${def.summary}) Toolbar: ${layoutPreview}.`;
+    }
+    setToggleField('showOnAuthor', def.showOnAuthor, true);
+    setToggleField('showOnPublish', def.showOnPublish, true);
+    setToggleField('showOnDispatcher', def.showOnDispatcher, true);
+    setToggleField('enableDevMode', !isDevPolicyBlocked && def.enableDevMode, true);
+    setToggleField('customizeToolbar', false, true);
+    setToggleField('allowUpwardSync', def.allowUpwardSync, !def.enableDevMode);
+    DEV_BTN_KEYS.forEach((k) => setToggleField(`devBtn-${k}`, def.devToolsButtons?.[k] === true, true));
+    QA_BTN_KEYS.forEach((k) => setToggleField(`qaBtn-${k}`, def.qaToolsButtons?.[k] === true, true));
+    tbLayout = normalizeLayout(PERSONA_LAYOUTS[target]);
+
+    if (qaGrp) qaGrp.style.display = def.showQaSection ? '' : 'none';
+    if (qaSec) qaSec.style.display = def.showQaSection ? '' : 'none';
+    if (devGrp) devGrp.style.display = def.showDevSection ? '' : 'none';
+    if (devSec) devSec.style.display = def.showDevSection ? '' : 'none';
+    toggleDevBtnSection();
+    toggleToolbarSection();
+    renderToolbarEditor();
+  }
+
+  if (!silent) setDirty(true);
+}
+
+document.getElementById('personaGrid')?.addEventListener('click', (e) => {
+  const card = e.target.closest?.('.persona-card[data-persona]');
+  if (!card || card.disabled) return;
+  applyPersonaToForm(card.dataset.persona, { capturePrevious: true, silent: false });
+});
+
+document.getElementById('personaCloneCustom')?.addEventListener('click', () => {
+  const def = PERSONA_DEFS[selectedPersona] || PERSONA_DEFS.custom;
+  customSnapshot = {
+    showOnAuthor: def.showOnAuthor ?? true,
+    showOnPublish: def.showOnPublish ?? true,
+    showOnDispatcher: def.showOnDispatcher ?? true,
+    allowUpwardSync: def.allowUpwardSync ?? false,
+    enableDevMode: !isDevPolicyBlocked && (def.enableDevMode ?? false),
+    customizeToolbar: !!PERSONA_LAYOUTS[selectedPersona],
+    devToolsButtons: { ...DEFAULT_DEV_BUTTONS, ...(def.devToolsButtons || {}) },
+    qaToolsButtons: { audit: false, cache: false, readiness: false, ...(def.qaToolsButtons || {}) },
+    toolbarLayout: PERSONA_LAYOUTS[selectedPersona] ? normalizeLayout(PERSONA_LAYOUTS[selectedPersona]) : null,
+  };
+  applyPersonaToForm('custom', { capturePrevious: false, silent: false });
+});
+
+/** Renders the Multi-Site Brand Profiles dropdown and management list. */
+function renderProfilesSection() {
+  const sel = document.getElementById('activeProfileSelect');
+  const list = document.getElementById('profilesList');
+  if (!sel || !list) return;
+  const entries = Object.entries(profilesMap);
+  sel.replaceChildren(new Option('Auto-detect from URL or content root', ''));
+  entries.forEach(([id, p]) => sel.add(new Option(`${p.label || id} (${p.contentRoot || ''})`, id)));
+  sel.value = entries.some(([id]) => id === activeProfileId) ? activeProfileId : '';
+
+  list.replaceChildren();
+  entries.forEach(([id, p]) => {
+    const row = document.createElement('div');
+    row.className = 'profile-row';
+    const meta = document.createElement('div');
+    meta.className = 'profile-meta';
+    const title = document.createElement('b');
+    title.textContent = p.label || id;
+    const code = document.createElement('code');
+    code.textContent = ` · ${id} · ${p.contentRoot || ''}${p.matchDomains?.length ? ` · domains: ${p.matchDomains.join(', ')}` : ''}`;
+    meta.append(title, code);
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn btn-secondary btn-sm';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => openProfileForm(id));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-danger btn-sm';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => {
+      delete profilesMap[id];
+      if (activeProfileId === id) activeProfileId = '';
+      renderProfilesSection();
+      setDirty(true);
+    });
+    row.append(meta, editBtn, delBtn);
+    list.appendChild(row);
+  });
+}
+
+/** Opens the brand profile editor form populated with `id` (or blank for a new profile). */
+function openProfileForm(id = null) {
+  const form = document.getElementById('profileForm');
+  if (!form) return;
+  editingProfileId = id;
+  const prof = id ? profilesMap[id] || {} : {};
+  document.getElementById('prof-id').value = id || '';
+  document.getElementById('prof-id').disabled = !!id;
+  document.getElementById('prof-label').value = prof.label || '';
+  document.getElementById('prof-root').value = prof.contentRoot || '';
+  document.getElementById('prof-app').value = prof.appName || '';
+  document.getElementById('prof-domains').value = Array.isArray(prof.matchDomains) ? prof.matchDomains.join(', ') : '';
+  document.getElementById('prof-mappings').value = prof.urlMappings || '';
+  form.hidden = false;
+}
+
+document.getElementById('activeProfileSelect')?.addEventListener('change', (e) => {
+  activeProfileId = e.target.value;
+  setDirty(true);
+});
+document.getElementById('addProfileBtn')?.addEventListener('click', () => openProfileForm(null));
+document.getElementById('profCancelBtn')?.addEventListener('click', () => {
+  document.getElementById('profileForm').hidden = true;
+  editingProfileId = null;
+});
+document.getElementById('profSaveBtn')?.addEventListener('click', () => {
+  const id = (editingProfileId || document.getElementById('prof-id').value).trim();
+  const contentRoot = document.getElementById('prof-root').value.trim().replace(/\/+$/, '');
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) {
+    return showBanner('error', '⚠ Profile ID must be 1–40 letters, digits, hyphens, or underscores.');
+  }
+  if (!/^\/content\//.test(contentRoot)) {
+    return showBanner('error', '⚠ Profile Content Root must start with /content/.');
+  }
+  const matchDomains = document.getElementById('prof-domains').value
+    .split(/[\s,]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  profilesMap[id] = {
+    label: document.getElementById('prof-label').value.trim() || id,
+    contentRoot,
+    appName: document.getElementById('prof-app').value.trim() || contentRoot.split('/')[2] || 'mysite',
+    matchDomains,
+    urlMappings: document.getElementById('prof-mappings').value.trim(),
+  };
+  document.getElementById('profileForm').hidden = true;
+  editingProfileId = null;
+  renderProfilesSection();
+  setDirty(true);
+});
+
 // ─── Developer mode helpers ───────────────────────────────────────────────────
 
 /** Show/hide the per-button checkboxes depending on the enableDevMode toggle state. */
@@ -917,8 +1277,8 @@ function updateSyncSetting() {
     && document.getElementById('devBtn-sync')?.checked !== false;
   const input = document.getElementById('allowUpwardSync');
   if (!input) return;
-  input.disabled = !available;
-  input.closest('.toggle-row')?.classList.toggle('is-disabled', !available);
+  input.disabled = !available || isConfigLocked;
+  input.closest('.toggle-row')?.classList.toggle('is-disabled', !available || isConfigLocked);
   const note = document.getElementById('allowUpwardSyncNote');
   if (note) note.style.display = available ? 'none' : '';
 }
@@ -928,8 +1288,8 @@ function updateOrbSummonSetting() {
   const classicOn = document.getElementById('classicBar')?.checked === true;
   const input = document.getElementById('summonOnLongPress');
   if (!input) return;
-  input.disabled = classicOn;
-  input.closest('.toggle-row')?.classList.toggle('is-disabled', classicOn);
+  input.disabled = classicOn || isConfigLocked;
+  input.closest('.toggle-row')?.classList.toggle('is-disabled', classicOn || isConfigLocked);
 }
 
 // Wire up the live toggle so the section appears/disappears immediately on click.
@@ -941,8 +1301,17 @@ document.addEventListener('change', (e) => {
     renderToolbarEditor();
     updateOrbSummonSetting();
   }
-  // The toolbar editor greys out developer buttons while their toggle is off.
-  if (e.target?.id === 'enableDevMode' || e.target?.id?.startsWith('devBtn-')) renderToolbarEditor();
+  // The toolbar editor greys out developer/QA buttons while their toggle is off.
+  if (e.target?.id === 'enableDevMode' || e.target?.id?.startsWith('devBtn-') || e.target?.id?.startsWith('qaBtn-')) {
+    renderToolbarEditor();
+  }
+  if (selectedPersona === 'custom' && (
+    TOGGLES.includes(e.target?.id)
+    || e.target?.id?.startsWith('devBtn-')
+    || e.target?.id?.startsWith('qaBtn-')
+  )) {
+    customSnapshot = captureCustomFromForm();
+  }
 });
 
 // ─── Toolbar layout editor ────────────────────────────────────────────────────
@@ -960,14 +1329,18 @@ const TB_BARS = [
 
 const tbIcon = (item) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${item.icon}"/></svg>`;
 
-/** Why a developer-only button would not show right now (null when it would). */
+/** Why a developer or QA button would not show right now (null when it would). */
 function tbDevNote(item) {
+  if (item.qa && !document.getElementById(`qaBtn-${item.qa}`)?.checked) {
+    return 'Needs QA Verification';
+  }
   if (!item.dev) return null;
   if (!document.getElementById('enableDevMode')?.checked) return 'Needs Developer Mode';
   if (document.getElementById(`devBtn-${item.dev}`)?.checked === false) return 'Turned off in Developer Mode';
   return null;
 }
 
+/** Creates a small icon control button (`up`, `down`, `remove`) for the toolbar customizer list. */
 function tbCtl(label, glyph, act, id, bar, disabled) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -982,6 +1355,7 @@ function tbCtl(label, glyph, act, id, bar, disabled) {
   return b;
 }
 
+/** Renders the Regular Bar & Expanded Bar layout editor columns and item dropdowns. */
 function renderToolbarEditor(focus) {
   const host = document.getElementById('tbEditor');
   if (!host) return;
@@ -1079,7 +1453,7 @@ function renderToolbarEditor(focus) {
     addable.forEach((it) => {
       const o = document.createElement('option');
       o.value = it.id;
-      o.textContent = it.label + (it.dev ? ' (developer)' : '');
+      o.textContent = it.label + (it.dev ? ' (developer)' : it.qa ? ' (QA)' : '');
       sel.appendChild(o);
     });
     sel.disabled = ids.length >= max || !addable.length;
@@ -1097,6 +1471,7 @@ function renderToolbarEditor(focus) {
   }
 }
 
+/** Applies a toolbar layout mutation, normalizes bounds, re-renders, and marks settings dirty. */
 function tbChange(mutate, focus) {
   mutate();
   tbLayout = normalizeLayout(tbLayout);
@@ -1136,17 +1511,18 @@ document.getElementById('tbReset')?.addEventListener('click', () => {
 
 document.getElementById('logoSpiral').innerHTML = logoSpiralPaths();
 
+/** Initializes live light/dark/auto theme synchronization for the Options page. */
 function initTheme() {
   // Follows the browser theme until the saved choice arrives; later changes (this page, another tab) and browser theme switches update it live
   themeSync = syncTheme(null, applyTheme);
-  chrome.storage.sync.get({ optionsTheme: 'auto' }, (data) => themeSync.set(data.optionsTheme));
+  compatStorageGet('sync', { optionsTheme: 'auto' }).then((data) => themeSync.set(data.optionsTheme));
 }
 
 // Auto (default) → Light → Dark → Auto …
 document.getElementById('theme-toggle').addEventListener('click', () => {
   const next = nextTheme(themeChoice);
   themeSync.set(next);
-  chrome.storage.sync.set({ optionsTheme: next });
+  compatStorageSet('sync', { optionsTheme: next });
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -1171,13 +1547,28 @@ window.addEventListener('beforeunload', (e) => {
 
 // ─── Export / import (credentials are never included) ────────────────────────
 
-const AUTH_TYPES = ['basic', 'bearer', 'none'];
+const AUTH_TYPES = ['session', 'basic', 'bearer', 'none'];
 
+/** Serializes current Settings fields, persona state, profiles, and hosts into export JSON (never credentials). */
 function exportSettings() {
-  const out = { version: 1, shared: {}, toggles: {}, devToolsButtons: {}, toolbarLayout: normalizeLayout(tbLayout), envOrder: [], environments: {} };
+  const out = {
+    version: 1,
+    persona: selectedPersona,
+    shared: {},
+    toggles: {},
+    devToolsButtons: {},
+    qaToolsButtons: {},
+    customSnapshot,
+    profiles: { ...profilesMap },
+    activeProfile: activeProfileId || null,
+    toolbarLayout: normalizeLayout(tbLayout),
+    envOrder: [],
+    environments: {},
+  };
   SHARED_FIELDS.forEach((k) => { out.shared[k] = document.getElementById(k)?.value.trim() || ''; });
   TOGGLES.forEach((k) => { out.toggles[k] = !!document.getElementById(k)?.checked; });
   DEV_BTN_KEYS.forEach((k) => { out.devToolsButtons[k] = !!document.getElementById(`devBtn-${k}`)?.checked; });
+  QA_BTN_KEYS.forEach((k) => { out.qaToolsButtons[k] = !!document.getElementById(`qaBtn-${k}`)?.checked; });
   out.envOrder = [...document.querySelectorAll('#env-order-list .order-item')].map((i) => i.dataset.env);
   [...BUILTIN_ENVS, ...customEnvIds].forEach((env) => {
     const cfg = {
@@ -1201,6 +1592,7 @@ function setField(id, value) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/** Populates Options form fields from an imported JSON preset without writing credentials. */
 function applyImportedSettings(cfg) {
   const str = (v, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
@@ -1215,11 +1607,23 @@ function applyImportedSettings(cfg) {
     const el = DEV_BTN_KEYS.includes(k) ? document.getElementById(`devBtn-${k}`) : null;
     if (el && typeof v === 'boolean') el.checked = v;
   });
-  toggleDevBtnSection();
+  Object.entries(cfg.qaToolsButtons || {}).forEach(([k, v]) => {
+    const el = QA_BTN_KEYS.includes(k) ? document.getElementById(`qaBtn-${k}`) : null;
+    if (el && typeof v === 'boolean') el.checked = v;
+  });
   if (cfg.toolbarLayout && typeof cfg.toolbarLayout === 'object') tbLayout = normalizeLayout(cfg.toolbarLayout);
-  toggleToolbarSection();
-  renderToolbarEditor();
+  if (cfg.customSnapshot && typeof cfg.customSnapshot === 'object') {
+    customSnapshot = { ...defaultCustomSnapshot(), ...cfg.customSnapshot };
+  } else {
+    customSnapshot = captureCustomFromForm();
+  }
+  applyPersonaToForm(cfg.persona || 'custom', { capturePrevious: false, silent: true });
   updateOrbSummonSetting();
+  if (cfg.profiles && typeof cfg.profiles === 'object' && !Array.isArray(cfg.profiles)) {
+    profilesMap = { ...cfg.profiles };
+    activeProfileId = typeof cfg.activeProfile === 'string' ? cfg.activeProfile : '';
+    renderProfilesSection();
+  }
 
   Object.entries(cfg.environments || {}).forEach(([env, e]) => {
     if (!e || typeof e !== 'object') return;
@@ -1257,6 +1661,7 @@ function applyImportedSettings(cfg) {
 const backupBtn  = document.getElementById('backupMenuBtn');
 const backupMenu = document.getElementById('backupMenu');
 
+/** Opens or closes the header Backup / Export / Import menu. */
 function setBackupMenu(open) {
   backupMenu.hidden = !open;
   backupBtn.setAttribute('aria-expanded', String(open));
@@ -1276,12 +1681,9 @@ document.addEventListener('keydown', (e) => {
 
 document.getElementById('exportSettings').addEventListener('click', async () => {
   setBackupMenu(false);
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(exportSettings()));
-    showBanner('success', '✓ Settings copied as JSON. Credentials are not included.');
-  } catch {
-    showBanner('error', '⚠ Could not copy to the clipboard.');
-  }
+  const ok = await copyToClipboard(JSON.stringify(exportSettings()));
+  if (ok) showBanner('success', '✓ Settings copied as JSON. Credentials are not included.');
+  else showBanner('error', '⚠ Could not copy to the clipboard.');
 });
 
 document.getElementById('importSettings').addEventListener('click', async () => {
@@ -1314,13 +1716,15 @@ document.getElementById('shareSettingsUrl')?.addEventListener('click', async () 
     const json = JSON.stringify(exportSettings());
     const b64 = btoa(encodeURIComponent(json));
     const url = `${window.location.origin}${window.location.pathname}#setup=${b64}`;
-    await navigator.clipboard.writeText(url);
-    showBanner('success', '✓ Shareable setup link copied to clipboard.');
+    const ok = await copyToClipboard(url);
+    if (ok) showBanner('success', '✓ Shareable setup link copied to clipboard.');
+    else showBanner('error', '⚠ Could not copy shareable link.');
   } catch {
     showBanner('error', '⚠ Could not create shareable link.');
   }
 });
 
+/** Checks `#setup=` in the Options URL hash for a shared JSON preset import. */
 async function checkShareableImport() {
   const hash = window.location.hash || '';
   const search = window.location.search || '';
@@ -1415,3 +1819,10 @@ document.getElementById('qs-save').addEventListener('click', () => {
 
 initTheme();
 loadSettings().then(() => checkShareableImport());
+
+// Keep Options synchronized if persona was switched from Popup or Toolbar while Options is open.
+getExtApi()?.storage?.onChanged?.addListener((changes, area) => {
+  if (area === 'sync' && changes.persona && !dirty) {
+    applyPersonaToForm(changes.persona.newValue, { capturePrevious: false, silent: true });
+  }
+});

@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Build-time stand-in for the administrator control policy.
  * @module shared/policy-override

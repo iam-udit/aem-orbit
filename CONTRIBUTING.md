@@ -16,7 +16,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 - **Node.js**: `v22.13.0` or higher (see [`.nvmrc`](.nvmrc))
 - **npm**: `v10.0.0` or higher
-- **Google Chrome** or Chromium-based browser (Brave, Edge)
+- **Supported Browsers**: Google Chrome / Chromium (Edge, Brave, Arc, Opera, Vivaldi), Mozilla Firefox (`115+` MV3), or Apple Safari Web Extensions
 
 ### Installation
 
@@ -47,12 +47,15 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 | Command | Description |
 | :--- | :--- |
-| `npm run build` | Bundles background, content scripts, popup, and options into `dist/extension/` |
+| `npm run build` | Bundles background, content scripts, popup, and options into `dist/extension/` (Chromium MV3) |
+| `npm run build:firefox` | Bundles the Firefox MV3 extension target into `dist/firefox/` (`background.scripts` patched) |
+| `npm run build:all` | Builds both Chromium (`dist/extension/`) and Firefox (`dist/firefox/`) bundles |
 | `npm run watch` | Watches for file changes and triggers incremental rebuilds |
-| `npm test` | Runs all 79 unit and integration test suites using native `node:test` |
+| `npm test` | Runs all unit and integration tests using native `node:test` (`287` tests across `test/*.test.mjs`) |
 | `npm run lint` | Runs ESLint across all JavaScript/ESM files |
-| `npm run check` | Executes linting followed by the complete test suite |
-| `npm run zip` | Packages the production zip into `dist/` |
+| `npm run check` | Executes linting followed by the complete unit test suite |
+| `npm run test:e2e` | Runs extensible Chrome DevTools Protocol (CDP) end-to-end tests (`scripts/e2e/`) against live AEM/WKND targets |
+| `npm run zip` | Packages the Chromium release zip into `dist/` |
 | `npm run release` | Runs `check`, `build`, and generates the versioned release zip |
 
 ---
@@ -66,7 +69,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
    - Never inject arbitrary unsanitized HTML into the DOM; always use `escHtml()` or safe DOM construction.
    - External network calls must be constrained to configured AEM host origins.
 4. **JSDoc Documentation**: Provide clean JSDoc comments with `@param` and `@returns` for exported functions.
-5. **Testing**: Any new functionality or bug fix must include corresponding tests under [`test/`](test/). All tests must pass with 100% success rate.
+5. **Testing**: Any new functionality or bug fix must include corresponding unit tests under [`test/`](test/). When adding user-facing UI/AEM flows, add a suite module under [`scripts/e2e/suites/`](scripts/e2e/suites/) and verify via `npm run check` and `npm run test:e2e`.
 
 ---
 

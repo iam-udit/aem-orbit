@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0 -->
 <html lang="en" data-theme="light" data-theme-choice="auto">
 <head>
   <meta charset="UTF-8" />
@@ -8,6 +9,7 @@
   <style>
     /* ── Theme tokens & variables ────────────────────────────────────────────── */
     :root {
+      color-scheme: light;
       --bg:             #f8fafc;
       --bg-gradient:    radial-gradient(900px 320px at 50% 0px, rgba(235, 16, 0, 0.05), transparent 70%), #f8fafc;
       --surface:        rgba(255, 255, 255, 0.85);
@@ -48,9 +50,11 @@
       --shadow:         0 4px 20px -2px rgba(0, 0, 0, 0.05);
       --card-shadow:    0 2px 8px -1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
       --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      --select-arrow:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     }
 
     [data-theme="dark"] {
+      color-scheme: dark;
       --bg:             #0d0f14;
       --bg-gradient:    radial-gradient(900px 320px at 50% 0px, rgba(235, 16, 0, 0.09), transparent 70%), #0d0f14;
       --surface:        rgba(22, 26, 35, 0.75);
@@ -91,6 +95,7 @@
       --shadow:         0 8px 32px rgba(0, 0, 0, 0.45);
       --card-shadow:    0 4px 16px -2px rgba(0, 0, 0, 0.35);
       --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      --select-arrow:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     }
 
     /* ── Reset & Base ────────────────────────────────────────────────────────── */
@@ -315,7 +320,8 @@
 
     input[type="text"],
     input[type="password"],
-    input[type="url"] {
+    input[type="url"],
+    select {
       width: 100%;
       height: 38px;
       padding: 0 12px;
@@ -324,13 +330,27 @@
       font-size: 13px;
       font-family: inherit;
       color: var(--input-text);
-      background: var(--input-bg);
+      background-color: var(--input-bg);
       transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
     }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      padding-right: 34px;
+      background-image: var(--select-arrow);
+      background-position: right 11px center;
+      background-size: 14px 14px;
+      background-repeat: no-repeat;
+    }
+    select:hover:not(:disabled) { border-color: var(--accent); }
+    select:disabled { opacity: 0.5; cursor: not-allowed; }
+    select option { background: var(--bg); color: var(--input-text); }
     input[type="text"]::placeholder,
     input[type="password"]::placeholder,
     input[type="url"]::placeholder { color: var(--text-faint); }
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--border-glow);
@@ -810,10 +830,9 @@
     .tb-always { font-size: 11.5px; color: var(--text-faint); width: 78px; text-align: right; }
     .tb-add { margin-top: 8px; }
     .tb-add select {
-      height: 32px; padding: 0 10px; border-radius: 7px; font: inherit; font-size: 12px;
-      color: var(--input-text); background: var(--input-bg); border: 1px solid var(--input-border);
+      width: auto; height: 32px; padding: 0 28px 0 10px; border-radius: 7px;
+      font-size: 12px; background-position: right 9px center;
     }
-    .tb-add select:disabled { opacity: 0.5; }
 
     /* ── Quick setup (first run) ─────────────────────────────────────────────── */
     .quick-setup {
@@ -834,23 +853,6 @@
       align-items: center;
     }
     .quick-setup label { font-size: 12px; font-weight: 600; margin-bottom: 0; }
-    .quick-setup input, .quick-setup select {
-      width: 100%;
-      height: 38px;
-      padding: 0 12px;
-      border-radius: 8px;
-      font: inherit;
-      font-size: 13px;
-      background: var(--input-bg);
-      color: var(--input-text);
-      border: 1px solid var(--input-border);
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .quick-setup input:focus, .quick-setup select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--border-glow);
-    }
     .quick-setup .qs-actions {
       display: flex;
       align-items: center;
@@ -859,6 +861,63 @@
       flex-wrap: wrap;
     }
     .quick-setup .qs-status { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Personas & Brand Profiles ──────────────────────────────────────────── */
+    .persona-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 680px) { .persona-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .persona-card {
+      all: unset;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+    }
+    .persona-card:hover:not(:disabled) { border-color: var(--border-glow); background: var(--surface-hover); }
+    .persona-card.active {
+      border-color: var(--accent);
+      background: rgba(15, 98, 254, 0.10);
+      box-shadow: 0 0 0 2px rgba(69, 137, 255, 0.18);
+    }
+    .persona-card:disabled { opacity: 0.45; cursor: not-allowed; }
+    .persona-card-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .persona-card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .persona-card-tag {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 2px 6px; border-radius: 99px; background: var(--surface-hover); color: var(--text-muted);
+    }
+    .persona-card.active .persona-card-tag { background: rgba(69, 137, 255, 0.22); color: var(--accent); }
+    .persona-card-desc { font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
+    .persona-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      padding: 9px 12px; border-radius: 8px;
+      background: rgba(69, 137, 255, 0.08); border: 1px solid rgba(69, 137, 255, 0.25);
+      font-size: 12px; color: var(--text-muted);
+    }
+    .profile-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .profile-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .profile-meta { flex: 1; min-width: 0; font-size: 12px; }
+    .profile-meta b { color: var(--text); }
+    .profile-meta code { font-size: 11px; color: var(--text-muted); }
+    .profile-form {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      padding: 12px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); margin-top: 8px;
+    }
+    .profile-form .full { grid-column: 1 / -1; }
+    html, textarea { scrollbar-width: thin; }
 
     /* ── Keyboard focus & motion ─────────────────────────────────────────────── */
     button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible,
@@ -1229,6 +1288,79 @@
       </div>
     </div>
 
+    <div class="section" id="profilesSection">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span>Multi-Site / Brand Profiles</span>
+        <button class="btn btn-secondary btn-sm" id="addProfileBtn" type="button">+ Add Profile</button>
+      </div>
+      <div class="form-group">
+        <label for="activeProfileSelect">Active / fallback site profile</label>
+        <select id="activeProfileSelect">
+          <option value="">Auto-detect from URL or content root</option>
+        </select>
+        <div class="field-hint">Configure brand-specific JCR roots, app names, domain matchers, and dispatcher mappings without editing global settings each time you switch sites.</div>
+      </div>
+      <div class="profile-list" id="profilesList"></div>
+      <div class="profile-form" id="profileForm" hidden>
+        <div>
+          <label for="prof-id">Profile ID <span class="req">*</span></label>
+          <input type="text" id="prof-id" placeholder="wknd" pattern="[A-Za-z0-9_-]+" />
+        </div>
+        <div>
+          <label for="prof-label">Display Name</label>
+          <input type="text" id="prof-label" placeholder="WKND Travel" />
+        </div>
+        <div>
+          <label for="prof-root">Content Root <span class="req">*</span></label>
+          <input type="text" id="prof-root" placeholder="/content/wknd" />
+        </div>
+        <div>
+          <label for="prof-app">App Name</label>
+          <input type="text" id="prof-app" placeholder="wknd" />
+        </div>
+        <div class="full">
+          <label for="prof-domains">Match Domains (comma-separated)</label>
+          <input type="text" id="prof-domains" placeholder="wknd.com, wwwdev.wknd.com, dev-cloud-author.com" />
+        </div>
+        <div class="full">
+          <label for="prof-mappings">Profile URL Mappings (optional override)</label>
+          <textarea id="prof-mappings" rows="3" spellcheck="false" placeholder="/content/wknd/us/en = /&#10;/content/wknd/de/de = /de/de"></textarea>
+        </div>
+        <div class="full" style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-secondary btn-sm" id="profCancelBtn" type="button">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="profSaveBtn" type="button">Apply Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-group-label">Workspace Persona</div>
+    <div class="section" id="personaSection">
+      <div class="section-title">Select your workspace role</div>
+      <div class="field-hint" id="personaPolicyNote" style="display:none;margin:0 0 10px;"></div>
+      <div class="persona-grid" id="personaGrid" role="radiogroup" aria-label="Workspace Persona">
+        <button class="persona-card" type="button" data-persona="author" role="radio" aria-checked="false">
+          <span class="persona-card-head"><span class="persona-card-title">Author</span><span class="persona-card-tag">Editorial</span></span>
+          <span class="persona-card-desc">Clean authoring, preview, locales, and safe publishing without developer clutter.</span>
+        </button>
+        <button class="persona-card" type="button" data-persona="qa" role="radio" aria-checked="false">
+          <span class="persona-card-head"><span class="persona-card-title">QA</span><span class="persona-card-tag">Audit</span></span>
+          <span class="persona-card-desc">SEO &amp; a11y audit, cache headers, readiness checklist, component/DAM inspect; publishing hidden.</span>
+        </button>
+        <button class="persona-card" type="button" data-persona="dev" role="radio" aria-checked="false">
+          <span class="persona-card-head"><span class="persona-card-title">Developer</span><span class="persona-card-tag">Full</span></span>
+          <span class="persona-card-desc">JCR tree, CRXDE, overlays, sync, QA verification tools, and destructive actions.</span>
+        </button>
+        <button class="persona-card" type="button" data-persona="custom" role="radio" aria-checked="false">
+          <span class="persona-card-head"><span class="persona-card-title">Custom</span><span class="persona-card-tag">Manual</span></span>
+          <span class="persona-card-desc">Preserves standard shipped defaults and lets you choose every toggle individually.</span>
+        </button>
+      </div>
+      <div class="persona-banner" id="personaPresetBanner" hidden>
+        <span id="personaPresetText">Preset active — feature toggles and toolbar buttons below reflect this persona automatically.</span>
+        <button class="btn btn-secondary btn-sm" id="personaCloneCustom" type="button">Customize in Custom mode</button>
+      </div>
+    </div>
+
     <div class="section">
       <div class="section-title">Safety</div>
       <div class="toggle-row">
@@ -1245,11 +1377,11 @@
         </div>
         <label class="toggle"><input type="checkbox" id="confirmPublish" /><span class="toggle-slider"></span></label>
       </div>
-      <div class="toggle-row">
+      <div class="toggle-row" id="allowUpwardSyncRow">
         <div>
           <div class="toggle-label">Allow syncing to higher environments</div>
           <div class="toggle-desc">Off: Sync only copies a page from a higher environment to a lower one (for example Prod → Stage), using the order set under Environment order. On: it also allows lower → higher (for example Dev → Prod), so the Sync menu shows both Pull and Push for every environment. Protected environments still need a typed confirmation.</div>
-          <div class="toggle-desc" id="allowUpwardSyncNote" style="display:none;">Not available: Sync needs Developer Mode and its Sync toggle to be on. Your choice here is kept.</div>
+          <div class="toggle-desc" id="allowUpwardSyncNote" style="display:none;">Not available: Sync needs Developer Mode (or Developer persona) and its Sync toggle to be on. Your choice here is kept.</div>
         </div>
         <label class="toggle"><input type="checkbox" id="allowUpwardSync" /><span class="toggle-slider"></span></label>
       </div>
@@ -1269,7 +1401,7 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="toolbarVisibilitySection">
       <div class="section-title">Toolbar Visibility</div>
       <div class="toggle-row">
         <div>
@@ -1351,8 +1483,37 @@
       </div>
     </div>
 
-    <div class="section-group-label">Developer Mode</div>
-    <div class="section">
+    <div class="section-group-label" id="qaGroupLabel">QA Verification Tools</div>
+    <div class="section" id="qaSection">
+      <div class="section-title">QA verification &amp; readiness</div>
+      <div class="field-hint" style="margin:0 0 10px;">Enabled automatically in the <b>QA</b> and <b>Developer</b> personas, or opt in manually under <b>Custom</b>.</div>
+      <div id="qaBtnSection">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">SEO &amp; Accessibility Audit</div>
+            <div class="toggle-desc">Checks headings, meta description, canonical, alt text, duplicate IDs, broken images, and internal links.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="qaBtn-audit" /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Cache &amp; Dispatcher Headers</div>
+            <div class="toggle-desc">Inspects HTTP CDN cache indicators (<code>X-Cache</code>, <code>Age</code>, <code>Cache-Control</code>) on the active page.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="qaBtn-cache" /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">QA Release Readiness Checklist</div>
+            <div class="toggle-desc">Runs one-click publish/preview parity, replication queue, unpublished reference, and SEO readiness checks in the popup.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="qaBtn-readiness" /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-group-label" id="devModeGroupLabel">Developer Mode</div>
+    <div class="section" id="devModeSection">
       <div class="section-title">Developer toolbar controls</div>
       <div class="field-hint" id="policyNote" style="display:none;margin:0 0 10px;"></div>
       <div class="toggle-row">

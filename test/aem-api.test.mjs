@@ -1315,3 +1315,37 @@ test('runDiagnostics uses unsaved form values when given and reports per-tier fa
   assert.equal(res.csrf.ok, false);
   assert.equal(res.publish.checked, false, 'a tier with no host is not checked');
 });
+
+test('getConfig normalizes trailing host slashes and resolves persona state', async () => {
+  stores.sync.persona = 'dev';
+  stores.sync.environments.dev.authorHost = 'https://author.example.com///';
+  stores.sync.environments.dev.publishHost = 'https://publish.example.com/';
+  const cfg = await api.getConfig();
+  assert.equal(cfg.persona, 'dev');
+  assert.equal(cfg.enableDevMode, true);
+  assert.equal(cfg.environments.dev.authorHost, 'https://author.example.com');
+  assert.equal(cfg.environments.dev.publishHost, 'https://publish.example.com');
+});
+
+test('savePersonaPreference respects managed allowedPersonas policy', async () => {
+  globalThis.chrome.storage.managed = { get: (_k, cb) => cb({ allowedPersonas: ['author', 'qa'] }) };
+  try {
+    const blocked = await api.savePersonaPreference('dev');
+    assert.equal(blocked.ok, false);
+    const allowedRes = await api.savePersonaPreference('qa');
+    assert.equal(allowedRes.ok, true);
+    assert.equal(stores.sync.persona, 'qa');
+  } finally {
+    delete globalThis.chrome.storage.managed;
+  }
+});
+
+test('removePageListItem and clearPageList manage recent and favourites stores', async () => {
+  await api.recordRecent('dev', '/content/wknd/us/en', 'EN');
+  await api.toggleFavourite('dev', '/content/wknd/us/en', 'EN');
+  assert.equal((await api.getPageLists()).recent.length, 1);
+  assert.equal((await api.removePageListItem('recent', 'dev', '/content/wknd/us/en')).ok, true);
+  assert.equal((await api.getPageLists()).recent.length, 0);
+  await api.clearPageList('favourites');
+  assert.equal((await api.getPageLists()).favourites.length, 0);
+});

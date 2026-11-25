@@ -1,5 +1,7 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
- * Toolbar layout — which buttons appear on the regular (mini) and expanded bar.
+ * @file Toolbar layout — which buttons appear on the regular (mini) and expanded bar.
+ * @module shared/toolbar-layout
  *
  * Pure helpers shared by the content script (applies the layout) and the options
  * page (edits it). The default layout is exactly the toolbar as it shipped before
@@ -17,6 +19,7 @@
  * @property {string}  group     Neighbouring items of one group sit together; a divider separates groups.
  * @property {string}  icon      SVG path data (24×24 viewBox).
  * @property {string}  [dev]     Developer Mode button key that must be on for the button to show.
+ * @property {string}  [qa]      QA Verification tool key that must be on for the button to show.
  * @property {boolean} [required] Cannot be removed from the expanded bar.
  * @property {boolean} [overflow] When removed from the expanded bar, shown as a row in the More menu.
  */
@@ -65,6 +68,10 @@ export const TOOLBAR_ITEMS = [
     icon: 'M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z' },
   { id: 'reload',    label: 'Hard reload',          elId: 'asp-reload-btn',       group: 'tools', dev: 'reload',
     icon: 'M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z' },
+  { id: 'audit',     label: 'SEO & a11y audit',     elId: 'asp-audit-btn',        group: 'tools', qa: 'audit',
+    icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z' },
+  { id: 'cache',     label: 'Cache headers',        elId: 'asp-cache-btn',        group: 'tools', qa: 'cache',
+    icon: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z' },
 ];
 
 /** @type {Record<string, ToolbarItem>} */
@@ -86,6 +93,14 @@ export function defaultLayout() {
   return { mini: [...DEFAULT_LAYOUT.mini], expanded: [...DEFAULT_LAYOUT.expanded] };
 }
 
+/**
+ * Sanitizes one toolbar strip array (`mini` or `expanded`), enforcing valid IDs, deduplication,
+ * required items (`expanded`), and maximum slot capacity.
+ *
+ * @param {unknown} list - Candidate array of item IDs.
+ * @param {'mini'|'expanded'} bar - Target bar section.
+ * @returns {string[]}
+ */
 function normalizeBar(list, bar) {
   if (!Array.isArray(list)) return [...DEFAULT_LAYOUT[bar]];
   const seen = new Set();

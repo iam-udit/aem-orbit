@@ -9,7 +9,7 @@ test('manifest declares the managed-storage schema and the file is valid', () =>
   assert.equal(manifest.storage?.managed_schema, 'schema.json');
   const schema = read('schema.json');
   assert.equal(schema.type, 'object');
-  for (const key of ['environments', 'contentRoot', 'appName', 'urlMappings', 'requestTimeoutSec', 'envOrder', 'controlPolicy']) {
+  for (const key of ['environments', 'contentRoot', 'appName', 'urlMappings', 'requestTimeoutSec', 'envOrder', 'defaultPersona', 'allowedPersonas', 'profiles', 'controlPolicy']) {
     assert.ok(schema.properties[key], `schema has ${key}`);
   }
   // Credentials must never be provisioned through policy.

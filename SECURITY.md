@@ -6,8 +6,8 @@ We release patches and security fixes for the active version of **AEM Orbit**.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.2.x   | :white_check_mark: |
-| < 1.2   | :x:                |
+| 1.0.x   | :white_check_mark: |
+| < 1.0   | :x:                |
 
 ---
 
@@ -27,7 +27,8 @@ The security and privacy of our users are of paramount importance. If you discov
 
 ## Security Architecture Highlights
 
-- **Isolated Credentials**: All authentication secrets (passwords and API tokens) are strictly stored in `chrome.storage.local` on the user's local machine and never synchronized via `chrome.storage.sync`.
-- **Declarative Net Request (DNR)**: Header modifications (e.g. `wcmmode=disabled` cookie management) leverage Chrome's declarative rules engine rather than intercepting raw network payloads in JavaScript.
-- **Zero Remote Code**: The extension executes 100% self-contained code. No remote scripts (`eval()`, external CDNs) are loaded or executed, strictly complying with Manifest V3 and Chrome Web Store security guidelines.
+- **Isolated Credentials**: All authentication secrets (passwords and API tokens) are strictly stored in device-local extension storage (`chrome.storage.local` or session-only `chrome.storage.session`) and never synchronized via `chrome.storage.sync`.
+- **Declarative Net Request (DNR)**: Same-origin `Referer` and `Origin` header rewrites for Extension-initiated API POST/PUT/DELETE calls leverage declarative session rules (`declarativeNetRequestWithHostAccess`) rather than exposing credentials or cookies to webpage DOM scripts.
+- **Strict Message & Confirmation Guards**: Background and content message listeners verify exact extension `sender.id`; protected environments enforce non-empty typed slug confirmation on publish, unpublish, preview push, tree actions, restore version, dispatcher flush, replace, sync, and undo.
+- **Zero Remote Code**: The extension executes 100% self-contained code across Chromium, Firefox MV3, and Safari. No remote scripts (`eval()`, external CDNs) are loaded or executed.
 - **CSRF Protection**: All mutating Sling/WCM endpoints automatically fetch and attach dynamic tokenized `CSRF-Token` headers.

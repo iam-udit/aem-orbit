@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file "Please log in" errors and the login shortcut built from them.
  * @module shared/auth-error

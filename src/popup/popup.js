@@ -1,3 +1,4 @@
+// Copyright 2026 Udit Nayak · SPDX-License-Identifier: Apache-2.0
 /**
  * @file Extension Popup Script (Workspace) for AEM Orbit.
  * @module popup/popup
@@ -10,9 +11,11 @@
 import { createMessenger, failToast, escHtml, confirmDestructive as confirmShared, runReplication, runDelete, ui } from '../ui/page-actions.js';
 import { syncTheme } from '../shared/theme-dom.js';
 import { logoSpiralPaths } from '../shared/spiral.js';
-import { firstConfiguredEnv, getEdsVariants, getUniversalEditorUrl } from '../shared/url-utils.js';
+import { firstConfiguredEnv, getEdsVariants, getUniversalEditorUrl, resolveProfile } from '../shared/url-utils.js';
 import { isControlAllowed } from '../shared/control-policy.js';
 import { loginTarget } from '../shared/auth-error.js';
+import { PERSONA_DEFS, resolvePersonaState } from '../shared/persona.js';
+import { getExtApi, copyToClipboard, createTimeoutSignal } from '../shared/browser-compat.js';
 
 const BUILTIN_ENVS = ['local', 'dev', 'stage', 'prod'];
 
@@ -23,6 +26,7 @@ let currentConfig  = null;  // credential-free config cached after loadPageInfo
 let currentEnv     = null;  // env of the current tab (or default if tab matches none)
 let currentStatus  = null;  // last GET_PAGE_STATUS result (rich status)
 let loginPrompted  = false; // the "log in" toast was already shown for this popup
+let personaState   = resolvePersonaState({});
 
 // Follows the browser theme until the saved choice (Settings theme button) arrives with the config.
 const popupTheme = syncTheme(null);
@@ -66,10 +70,10 @@ function setStatus(status, lastReplicated, lastModified) {
 
   if (lastModified) {
     const d = new Date(lastModified);
-    lastEl.textContent = `Modified ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    lastEl.textContent = Number.isNaN(d.getTime()) ? '' : `Modified ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
   } else if (lastReplicated) {
     const d = new Date(lastReplicated);
-    lastEl.textContent = `Published ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    lastEl.textContent = Number.isNaN(d.getTime()) ? '' : `Published ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
   } else {
     lastEl.textContent = '';
   }
@@ -87,7 +91,11 @@ function setPreviewStatus(previewStatus) {
   pill.style.display = '';
 }
 
-const fmtDate = (d) => (d ? new Date(d).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
+const fmtDate = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+};
 
 /** Second line under the status: who changed it, lock, scheduled on/off, live copy. */
 function setDetails(s) {
@@ -104,6 +112,7 @@ function setDetails(s) {
   document.getElementById('lockBtnLabel').textContent = s.lockOwner ? 'Unlock Page' : 'Lock Page';
 }
 
+/** Refreshes the header Favourite toggle button state for the active JCR path and env. */
 async function refreshFavourite() {
   const btn = document.getElementById('favBtn');
   if (!currentJcrPath) { btn.style.display = 'none'; return; }
@@ -117,6 +126,7 @@ async function refreshFavourite() {
   btn.classList.toggle('on', on);
 }
 
+/** Fetches and renders live publication status, queue badge, and favourite state for `currentJcrPath`. */
 async function refreshStatus() {
   currentStatus = null;
   if (!currentJcrPath) { setStatus('unknown'); setPreviewStatus(null); setDetails(null); refreshFavourite(); return; }
@@ -172,6 +182,7 @@ function setActiveActionBtn(btnId) {
   }
 }
 
+/** Opens the expandable bottom panel with a heading and formatted HTML content. */
 function openPanel(title, contentHtml, { normalWhitespace = false, sourceBtnId = null } = {}) {
   document.getElementById('panelTitle').textContent = title;
   document.getElementById('panelContent').innerHTML  = contentHtml;
@@ -184,6 +195,7 @@ function openPanel(title, contentHtml, { normalWhitespace = false, sourceBtnId =
   });
 }
 
+/** Collapses the bottom detail panel and clears active action button highlighting. */
 function closePanel() {
   document.getElementById('mainPanel').classList.remove('open');
   setActiveActionBtn(null);
@@ -192,8 +204,17 @@ function closePanel() {
 // ─── Load page info ────────────────────────────────────────────────────────────
 
 async function loadPageInfo() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTab = tab;
+  const api = getExtApi();
+  const qTabId = Number(new URLSearchParams(window.location.search).get('tabId'));
+  let tab = null;
+  if (Number.isInteger(qTabId) && qTabId > 0 && api?.tabs?.get) {
+    tab = await api.tabs.get(qTabId).catch(() => null);
+  }
+  if (!tab && api?.tabs?.query) {
+    const [active] = await api.tabs.query({ active: true, currentWindow: true });
+    tab = active;
+  }
+  currentTab = tab || {};
 
   const config = await msg('GET_CONFIG');
   currentConfig  = config;
@@ -212,21 +233,16 @@ async function loadPageInfo() {
 
   document.getElementById('notConfigured').style.display = 'none';
   document.getElementById('mainContent').style.display   = 'block';
-  applyDevMode(config);
 
-  const url = tab.url || '';
+  const url = currentTab.url || '';
   const shortUrl = url.replace(/^https?:\/\//, '');
-  document.getElementById('pageUrl').textContent = shortUrl.length > 65 ? `${shortUrl.substring(0, 65)}…` : shortUrl;
+  document.getElementById('pageUrl').textContent = shortUrl.length > 65 ? `${shortUrl.substring(0, 65)}…` : (shortUrl || '—');
   document.getElementById('pageUrl').title = url;
   setViewingNote(false);
 
   const info = await msg('GET_PAGE_INFO', { url });
   currentEnv = info.matchedEnv || firstConfiguredEnv(envs, config.envOrder);
-  setEnvBadge(currentEnv, envs);
-  const hasPreview = !!envs[currentEnv]?.previewHost;
-  document.getElementById('publishPreviewBtn').style.display = hasPreview ? '' : 'none';
-  document.getElementById('replRow').classList.toggle('no-preview', !hasPreview);
-  applyControlPolicy(config);
+  applyEnvUiState(config);
 
   if (info.ok && info.jcrPath) {
     currentJcrPath = info.jcrPath;
@@ -240,10 +256,17 @@ async function loadPageInfo() {
   await refreshStatus();
 }
 
+/** Updates badge, persona preset visibility, and policy rules for the current env/config. */
+function applyEnvUiState(config) {
+  const envs = config.environments || {};
+  setEnvBadge(currentEnv, envs);
+  applyPersonaUI(config);
+  applyControlPolicy(config);
+}
+
 /**
- * Administrator policy: hide the controls this environment's policy switches off. Runs after the
- * environment is known, because a policy can differ per environment. The service worker enforces
- * the same rules; this only keeps blocked controls from being offered.
+ * Administrator policy: hide controls this environment's policy turns off,
+ * while leaving controls permitted on the newly selected environment intact.
  */
 function applyControlPolicy(config) {
   const off = {
@@ -254,37 +277,84 @@ function applyControlPolicy(config) {
   const allowed = (c) => isControlAllowed(config.controlPolicy, c, currentEnv);
   Object.entries(off).forEach(([id, control]) => {
     const el = document.getElementById(id);
-    if (el && !allowed(control)) el.style.display = 'none';
+    if (!el) return;
+    if (!allowed(control)) el.style.display = 'none';
   });
-  // Preview shows only with a Preview tier AND when the policy allows it.
-  if (!allowed('publishPreview')) {
-    document.getElementById('publishPreviewBtn').style.display = 'none';
-    document.getElementById('replRow').classList.add('no-preview');
-  }
-  // The "Versions" list offers Restore; it stays, and the worker refuses Restore when it is off.
+  const hasPreview = !!config.environments?.[currentEnv]?.previewHost;
+  const showPreview = personaState.showReplication && hasPreview && allowed('publishPreview');
+  document.getElementById('publishPreviewBtn').style.display = showPreview ? '' : 'none';
+  document.getElementById('replRow').classList.toggle('no-preview', !showPreview);
 }
 
 /**
- * Developer Mode (Settings): show the Developer Tools group only when it is on, and only
- * the buttons that are enabled there. Same keys as the toolbar (jcr, tools, overlays, delete).
- * Versions, Save Version and Copy URLs live in Workspace, but move into Developer Tools while it
- * is shown, so that group's heading stays visible without scrolling.
+ * Applies the active workspace persona (`author` | `qa` | `dev` | `custom`) across popup controls.
+ * For `custom`, preserves the exact shipped layout and Developer Mode switches.
  */
-function applyDevMode(config) {
-  const on = config.enableDevMode === true;
-  const allowed = config.devToolsButtons || {};
-  const buttons = { jcrBtn: 'jcr', crxdeBtn: 'tools', overlayBtn: 'overlays', deleteBtn: 'delete' };
-  let visible = 0;
-  Object.entries(buttons).forEach(([id, key]) => {
-    const show = on && allowed[key] !== false;
-    document.getElementById(id).style.display = show ? '' : 'none';
-    if (show) visible++;
+function applyPersonaUI(config) {
+  personaState = resolvePersonaState(config);
+  const badge = document.getElementById('personaBadge');
+  if (badge) {
+    badge.textContent = personaState.meta.shortLabel;
+    badge.dataset.persona = personaState.persona;
+    const locked = !!config.lockConfiguration || personaState.allowedPersonas.length <= 1;
+    badge.title = locked ? `Workspace persona: ${personaState.meta.label}` : `Workspace persona: ${personaState.meta.label} (click to switch)`;
+  }
+
+  // Primary replication row (hidden in QA persona to prevent accidental publishing)
+  const replRow = document.getElementById('replRow');
+  if (replRow) replRow.style.display = personaState.showReplication ? '' : 'none';
+
+  // Restore baseline Workspace button visibility before applying persona & policy filters
+  ['publishBtn', 'unpublishBtn', 'treeActivateBtn', 'treeDeactivateBtn', 'bulkBtn', 'lockBtn', 'versionsBtn'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
   });
-  document.getElementById('groupDeveloper').style.display = visible ? '' : 'none';
+  document.getElementById('findReplaceBtn').style.display = personaState.showFindReplace ? '' : 'none';
+  document.getElementById('dispatcherFlushBtn').style.display = personaState.showFlushCache ? '' : 'none';
+  document.getElementById('createVersionBtn').style.display = personaState.readOnlyJcr ? 'none' : '';
+
+  // QA verification section
+  const qaGroup = document.getElementById('groupQa');
+  if (qaGroup) {
+    const qaButtons = { qaAuditBtn: 'audit', qaCacheBtn: 'cache', qaReadinessBtn: 'readiness' };
+    let qaVisible = 0;
+    Object.entries(qaButtons).forEach(([id, key]) => {
+      const show = personaState.qaToolsButtons[key] === true;
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? '' : 'none';
+      if (show) qaVisible++;
+    });
+    qaGroup.style.display = qaVisible ? '' : 'none';
+    if (personaState.persona === 'qa' && qaVisible) qaGroup.open = true;
+  }
+
+  // Developer Tools section
+  const allowed = personaState.devToolsButtons || {};
+  const buttons = {
+    jcrBtn: 'jcr',
+    crxdeBtn: 'tools',
+    overlayBtn: 'overlays',
+    dispatcherFlushBtn: 'tools',
+    deleteBtn: 'delete',
+  };
+  let devVisible = 0;
+  Object.entries(buttons).forEach(([id, key]) => {
+    const show = personaState.effectiveDevMode && allowed[key] !== false
+      && (id !== 'dispatcherFlushBtn' || personaState.showFlushCache);
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+    if (show && id !== 'dispatcherFlushBtn') devVisible++;
+  });
+  if (personaState.effectiveDevMode && personaState.showFlushCache) {
+    document.getElementById('dispatcherFlushBtn').style.display = '';
+    devVisible++;
+  }
+  const groupDev = document.getElementById('groupDeveloper');
+  groupDev.style.display = devVisible ? '' : 'none';
 
   const el = (id) => document.getElementById(id);
-  if (visible) {
-    const dev = el('groupDeveloper').querySelector('.action-grid');
+  if (devVisible) {
+    const dev = groupDev.querySelector('.action-grid');
     dev.insertBefore(el('versionsBtn'),      el('overlayBtn'));
     dev.insertBefore(el('createVersionBtn'), el('overlayBtn'));
     dev.insertBefore(el('urlVariantsBtn'),   el('deleteBtn'));
@@ -310,6 +380,7 @@ document.getElementById('viewingBack').addEventListener('click', () => {
 
 let searchSeq = 0; // ignore replies that arrive after a newer search started
 
+/** Executes a profile-aware AEM QueryBuilder page search and renders clickable results. */
 async function runSearch() {
   const query = document.getElementById('searchInput').value.trim();
   if (!query) return;
@@ -318,8 +389,9 @@ async function runSearch() {
   resultsEl.classList.add('open');
 
   const seq      = ++searchSeq;
-  const rootPath = currentConfig?.contentRoot || '/content';
-  const result   = await msg('SEARCH_PAGES', { rootPath, query, limit: 15 });
+  const prof     = resolveProfile(currentTab?.url || currentJcrPath || '', currentConfig?.profiles, currentConfig?.activeProfile);
+  const rootPath = prof?.contentRoot || currentConfig?.contentRoot || '/content';
+  const result   = await msg('SEARCH_PAGES', { rootPath, query, limit: 15, url: currentTab?.url || '' });
   if (seq !== searchSeq) return;
 
   if (!result.ok) {
@@ -382,6 +454,7 @@ document.getElementById('searchInput').addEventListener('keydown', (e) => {
 document.getElementById('editBtn').addEventListener('click', async () => {
   if (!currentJcrPath) return toast('No JCR path available', 'error');
   const { authorEditUrl } = await msg('GET_URL_VARIANTS', { jcrPath: currentJcrPath });
+  if (!authorEditUrl) return toast('Author host is not configured for this environment', 'error');
   await msg('OPEN_TAB', { url: authorEditUrl });
   window.close();
 });
@@ -426,6 +499,7 @@ function destructiveGuard() {
   };
 }
 
+/** Prompts the user for confirmation (or typed slug on protected environments) before destructive actions. */
 function confirmDestructive(actionLabel, path, { always = false } = {}) {
   return confirmShared(actionLabel, path, { ...destructiveGuard(), always, tone: 'warn' });
 }
@@ -506,11 +580,8 @@ document.getElementById('crxdeBtn').addEventListener('click', async () => {
   window.close();
 });
 
-document.getElementById('versionsBtn').addEventListener('click', async () => {
-  const panel = document.getElementById('mainPanel');
-  if (panel.classList.contains('open') && document.getElementById('panelTitle').textContent === 'Page Versions') {
-    closePanel(); return;
-  }
+/** Loads JCR version history for the selected page and binds Diff/Restore controls. */
+async function renderVersionsPanel() {
   if (!currentJcrPath) return toast('No JCR path available', 'error');
   openPanel('Page Versions', '<span style="color:var(--faint);">Loading…</span>', { sourceBtnId: 'versionsBtn' });
   const result = await msg('GET_PAGE_VERSIONS', { jcrPath: currentJcrPath });
@@ -522,9 +593,9 @@ document.getElementById('versionsBtn').addEventListener('click', async () => {
   const content = document.getElementById('panelContent');
   content.innerHTML = result.versions.map((v) => `
     <div class="version-item" style="display:flex; align-items:center; gap:8px;">
-      <span class="version-name" style="flex:1;"><b>${escHtml(v.name)}</b>${v.labels?.length ? ` · ${escHtml(v.labels.join(', '))}` : ''}<br><span class="version-date" style="font-size:11px; opacity:0.7;">${escHtml(new Date(v.created).toLocaleString())}</span></span>
+      <span class="version-name" style="flex:1;"><b>${escHtml(v.name)}</b>${v.labels?.length ? ` · ${escHtml(v.labels.join(', '))}` : ''}<br><span class="version-date" style="font-size:11px; opacity:0.7;">${escHtml(fmtDate(v.created))}</span></span>
       <button class="url-open" data-diff-ver="${escAttr(v.name)}" style="font-size:11px; padding:2px 6px;">Diff vs current</button>
-      <button class="url-open" data-restore-ver="${escAttr(v.name)}" style="font-size:11px; padding:2px 6px;">Restore</button>
+      ${personaState.readOnlyJcr ? '' : `<button class="url-open" data-restore-ver="${escAttr(v.name)}" style="font-size:11px; padding:2px 6px;">Restore</button>`}
     </div>
   `).join('');
 
@@ -534,16 +605,18 @@ document.getElementById('versionsBtn').addEventListener('click', async () => {
       toast(`Diffing version ${verName}…`, 'info');
       const d = await msg('DIFF_VERSIONS', { jcrPath: currentJcrPath, versionA: verName, versionB: 'current' });
       if (!d.ok) return toast(`✗ Diff failed: ${d.error}`, 'error');
-      content.innerHTML = renderDiff(`Version ${verName}`, d);
+      openPanel(`Diff: Version ${verName}`, renderDiff(`Version ${verName}`, d), { normalWhitespace: true, sourceBtnId: 'versionsBtn' });
+      bindDiffActions(() => renderVersionsPanel(), d);
     });
   });
 
   content.querySelectorAll('[data-restore-ver]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const verName = btn.dataset.restoreVer;
-      if (!(await ui.confirm({ title: 'Restore version', message: `Restore version "${verName}" to ${currentJcrPath}?`, tone: 'warn', confirmLabel: 'Restore' }))) return;
+      const confirmText = await confirmDestructive(`Restore version "${verName}" to this page?`, currentJcrPath, { always: true });
+      if (confirmText === null) return;
       toast(`Restoring version ${verName}…`, 'info');
-      const r = await msg('RESTORE_VERSION', { jcrPath: currentJcrPath, versionName: verName });
+      const r = await msg('RESTORE_VERSION', { jcrPath: currentJcrPath, versionName: verName, confirmText });
       if (r.ok) {
         toast(`✓ Version "${verName}" restored`, 'success');
         refreshStatus();
@@ -552,6 +625,14 @@ document.getElementById('versionsBtn').addEventListener('click', async () => {
       }
     });
   });
+}
+
+document.getElementById('versionsBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('mainPanel');
+  if (panel.classList.contains('open') && document.getElementById('panelTitle').textContent === 'Page Versions') {
+    closePanel(); return;
+  }
+  await renderVersionsPanel();
 });
 
 document.getElementById('createVersionBtn').addEventListener('click', async () => {
@@ -567,9 +648,10 @@ document.getElementById('createVersionBtn').addEventListener('click', async () =
 // Reuses the toolbar's overlay toggle (single implementation in the content script).
 document.getElementById('overlayBtn').addEventListener('click', async () => {
   if (!currentTab?.id) return;
+  const api = getExtApi();
   let r;
   try {
-    r = await chrome.tabs.sendMessage(currentTab.id, { action: 'TOGGLE_OVERLAYS' });
+    r = await api?.tabs?.sendMessage?.(currentTab.id, { action: 'TOGGLE_OVERLAYS' });
   } catch {
     return toast('Orbit toolbar not active on this page', 'warn');
   }
@@ -584,7 +666,7 @@ document.getElementById('urlVariantsBtn').addEventListener('click', async () => 
   }
   if (!currentJcrPath) return toast('No JCR path available', 'error');
   openPanel('Copy URLs', '<span style="color:var(--faint);">Loading…</span>', { sourceBtnId: 'urlVariantsBtn' });
-  const variants = await msg('GET_URL_VARIANTS', { jcrPath: currentJcrPath });
+  const variants = await msg('GET_URL_VARIANTS', { jcrPath: currentJcrPath, url: currentTab?.url || '' });
   const entries = [
     { label: 'Edit',        url: variants.authorEditUrl },
     { label: 'Author',      url: variants.authorTouchUrl },
@@ -602,17 +684,18 @@ document.getElementById('urlVariantsBtn').addEventListener('click', async () => 
     entries.push(
       { label: 'EDS Preview', url: eds.previewUrl },
       { label: 'EDS Live',    url: eds.liveUrl },
-      { label: 'Universal Editor', url: getUniversalEditorUrl(eds.previewUrl, variants.imsOrg) },
+      { label: 'EDS Universal Editor', url: getUniversalEditorUrl(eds.previewUrl, variants.imsOrg) },
     );
   }
-  entries.splice(0, entries.length, ...entries.filter((e) => e.url));
+  const seen = new Set();
+  const clean = entries.filter((e) => e.url && !seen.has(e.url) && seen.add(e.url));
 
-  if (entries.length === 0) {
+  if (clean.length === 0) {
     document.getElementById('panelContent').innerHTML = '<span style="color:var(--faint);">No hosts configured.</span>';
     return;
   }
 
-  document.getElementById('panelContent').innerHTML = entries.map((e, i) => `
+  document.getElementById('panelContent').innerHTML = clean.map((e, i) => `
     <div class="url-item">
       <span class="url-label">${escHtml(e.label)}</span>
       <span class="url-value" title="${escAttr(e.url)}">${escHtml(e.url)}</span>
@@ -621,10 +704,10 @@ document.getElementById('urlVariantsBtn').addEventListener('click', async () => 
     </div>
   `).join('');
 
-  const urls = entries.map((e) => e.url);
+  const urls = clean.map((e) => e.url);
   document.getElementById('panelContent').querySelectorAll('.url-copy').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(urls[+btn.dataset.idx]);
+      await copyToClipboard(urls[+btn.dataset.idx]);
       toast('✓ URL copied', 'success');
     });
   });
@@ -673,7 +756,8 @@ document.getElementById('favBtn').addEventListener('click', async () => {
 
 /** Panel body for a property-level diff: "other env" → "this env". */
 function renderDiff(otherEnv, d) {
-  const head = `<div class="list-head">${escHtml(envLabel(otherEnv).toUpperCase())} → ${escHtml(envLabel(currentEnv).toUpperCase())}</div>`;
+  const controls = `<div class="bulk-actions" style="margin-bottom:6px;"><button class="url-copy" id="diffBackBtn">← Back</button><button class="url-copy" id="diffCopyBtn" style="margin-left:auto;">Copy diff</button></div>`;
+  const head = `${controls}<div class="list-head">${escHtml(envLabel(otherEnv).toUpperCase())} → ${escHtml(envLabel(currentEnv).toUpperCase())}</div>`;
   if (!d.ok) return `${head}<span class="list-sub">Error: ${escHtml(d.error)}</span>`;
   if (!d.baseExists || !d.otherExists) {
     return `${head}<span class="list-sub">The page does not exist on ${escHtml(envLabel(d.baseExists ? otherEnv : currentEnv))}.</span>`;
@@ -691,9 +775,19 @@ function renderDiff(otherEnv, d) {
   return `${head}${rows}${more}`;
 }
 
-document.getElementById('compareBtn').addEventListener('click', async () => {
+/** Wires the Back and Copy-JSON controls inside a rendered diff view. */
+function bindDiffActions(onBack, d) {
+  document.getElementById('diffBackBtn')?.addEventListener('click', onBack);
+  document.getElementById('diffCopyBtn')?.addEventListener('click', async () => {
+    await copyToClipboard(JSON.stringify(d, null, 2));
+    toast('✓ Diff copied as JSON', 'success');
+  });
+}
+
+/** Compares page fingerprints across configured environments and binds login/diff buttons. */
+async function renderComparePanel() {
   if (!currentJcrPath) return toast('No JCR path available', 'error');
-  if (!togglePanel('Compare Environments', 'compareBtn')) return;
+  openPanel('Compare Environments', '<span style="color:var(--faint);">Comparing across environments…</span>', { normalWhitespace: true, sourceBtnId: 'compareBtn' });
   const r = await msg('COMPARE_ENVS', { jcrPath: currentJcrPath });
   const content = document.getElementById('panelContent');
   if (!r.ok) { content.textContent = `Error: ${r.error}`; return; }
@@ -733,23 +827,36 @@ document.getElementById('compareBtn').addEventListener('click', async () => {
       openPanel(`Diff: ${envLabel(other)} → ${envLabel(currentEnv)}`, '<span style="color:var(--faint);">Comparing…</span>', { normalWhitespace: true, sourceBtnId: 'compareBtn' });
       const d = await msg('DIFF_ENVS', { jcrPath: currentJcrPath, otherEnv: other });
       document.getElementById('panelContent').innerHTML = renderDiff(other, d);
+      bindDiffActions(() => renderComparePanel(), d);
     });
   });
+}
+
+document.getElementById('compareBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('mainPanel');
+  if (panel.classList.contains('open') && document.getElementById('panelTitle').textContent === 'Compare Environments') {
+    closePanel(); return;
+  }
+  await renderComparePanel();
 });
 
-document.getElementById('listsBtn').addEventListener('click', async () => {
-  if (!togglePanel('Recent & Favourites', 'listsBtn')) return;
+/** Renders Favourites and Recent pages with Open, Delete-item, and Clear list actions. */
+async function renderPageListsPanel() {
+  openPanel('Recent & Favourites', '<span style="color:var(--faint);">Loading…</span>', { normalWhitespace: true, sourceBtnId: 'listsBtn' });
   const { favourites = [], recent = [] } = await msg('GET_PAGE_LISTS');
-  const rows = (items) => items.map((e, i) => `
+  const rows = (listName, items) => items.map((e, i) => `
     <div class="list-row">
       <span class="list-main" title="${escAttr(e.path)}">${escHtml(e.title || e.path)} <span class="list-sub">${escHtml(e.path)}</span></span>
       <span class="list-tag">${escHtml(envLabel(e.env))}</span>
       <button class="url-open" data-i="${i}">Open</button>
+      <button class="url-copy" data-del-list="${listName}" data-del-i="${i}" title="Remove item">✕</button>
     </div>`).join('');
   const content = document.getElementById('panelContent');
   content.innerHTML =
-    `<div class="list-head">Favourites</div><div data-list="fav">${rows(favourites) || '<span class="list-sub">None yet — click ☆ next to the status.</span>'}</div>` +
-    `<div class="list-head">Recent</div><div data-list="recent">${rows(recent) || '<span class="list-sub">No recent pages.</span>'}</div>`;
+    `<div class="list-head" style="display:flex;justify-content:space-between;"><span>Favourites</span>${favourites.length ? '<button class="url-copy" data-clear-list="favourites">Clear</button>' : ''}</div>` +
+    `<div data-list="fav">${rows('favourites', favourites) || '<span class="list-sub">None yet — click ☆ next to the status.</span>'}</div>` +
+    `<div class="list-head" style="display:flex;justify-content:space-between;"><span>Recent</span>${recent.length ? '<button class="url-copy" data-clear-list="recent">Clear</button>' : ''}</div>` +
+    `<div data-list="recent">${rows('recent', recent) || '<span class="list-sub">No recent pages.</span>'}</div>`;
   content.querySelectorAll('[data-list] .url-open').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const list  = btn.closest('[data-list]').dataset.list === 'fav' ? favourites : recent;
@@ -761,20 +868,49 @@ document.getElementById('listsBtn').addEventListener('click', async () => {
       window.close();
     });
   });
+  content.querySelectorAll('[data-del-list]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ln = btn.dataset.delList;
+      const arr = ln === 'favourites' ? favourites : recent;
+      const entry = arr[+btn.dataset.delI];
+      if (!entry) return;
+      await msg('REMOVE_PAGE_LIST_ITEM', { list: ln, env: entry.env, jcrPath: entry.path });
+      await renderPageListsPanel();
+      refreshFavourite();
+    });
+  });
+  content.querySelectorAll('[data-clear-list]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await msg('CLEAR_PAGE_LIST', { list: btn.dataset.clearList });
+      await renderPageListsPanel();
+      refreshFavourite();
+    });
+  });
+}
+
+document.getElementById('listsBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('mainPanel');
+  if (panel.classList.contains('open') && document.getElementById('panelTitle').textContent === 'Recent & Favourites') {
+    closePanel(); return;
+  }
+  await renderPageListsPanel();
 });
 
 document.getElementById('quickLinksBtn').addEventListener('click', async () => {
   if (!togglePanel('Quick Links', 'quickLinksBtn')) return;
-  const { links = [] } = await msg('GET_QUICK_LINKS');
+  const { links = [] } = await msg('GET_QUICK_LINKS', { url: currentTab?.url || '', jcrPath: currentJcrPath });
+  const visibleLinks = personaState.showSystemQuickLinks
+    ? links
+    : links.filter((l) => l.group !== 'System');
   const content = document.getElementById('panelContent');
-  if (!links.length) { content.innerHTML = '<span style="color:var(--faint);">No author host configured for this environment.</span>'; return; }
+  if (!visibleLinks.length) { content.innerHTML = '<span style="color:var(--faint);">No author host configured for this environment.</span>'; return; }
   let group = '';
-  content.innerHTML = links.map((l, i) => {
+  content.innerHTML = visibleLinks.map((l, i) => {
     const head = l.group !== group ? `<div class="list-head">${escHtml((group = l.group))}</div>` : '';
     return `${head}<div class="list-row"><span class="list-main">${escHtml(l.label)}</span><button class="url-open" data-i="${i}">Open</button></div>`;
   }).join('');
   content.querySelectorAll('.url-open').forEach((btn) => {
-    btn.addEventListener('click', () => { msg('OPEN_TAB', { url: links[+btn.dataset.i].url }); window.close(); });
+    btn.addEventListener('click', () => { msg('OPEN_TAB', { url: visibleLinks[+btn.dataset.i].url }); window.close(); });
   });
 });
 
@@ -845,8 +981,9 @@ document.getElementById('bulkBtn').addEventListener('click', () => {
 });
 
 
-document.getElementById('actionLogBtn').addEventListener('click', async () => {
-  if (!togglePanel('Action Log', 'actionLogBtn')) return;
+/** Renders the device-local Action History panel with Sync Undo and Clear controls. */
+async function renderActionLogPanel() {
+  openPanel('Action History', '<span style="color:var(--faint);">Loading…</span>', { normalWhitespace: true, sourceBtnId: 'actionLogBtn' });
   const { entries = [] } = await msg('GET_ACTION_LOG');
   const content = document.getElementById('panelContent');
   if (!entries.length) {
@@ -884,8 +1021,10 @@ document.getElementById('actionLogBtn').addEventListener('click', async () => {
       if (confirmText === null) return;
       toast(`Undoing sync on ${env}…`, 'info');
       const r = await msg('UNDO_SYNC', { env, jcrPath: path, confirmText });
-      if (r.ok) toast('✓ Sync undone / previous version restored', 'success');
-      else failToast({ msg, toast }, `✗ ${r.error}`, r);
+      if (r.ok) {
+        toast('✓ Sync undone / previous version restored', 'success');
+        await Promise.all([renderActionLogPanel(), refreshStatus()]);
+      } else failToast({ msg, toast }, `✗ ${r.error}`, r);
     });
   });
   document.getElementById('logExport').addEventListener('click', async () => {
@@ -897,7 +1036,7 @@ document.getElementById('actionLogBtn').addEventListener('click', async () => {
     const csv = ['time,env,action,path,count,result,error',
       ...entries.map((e) => [new Date(e.ts).toISOString(), e.env, e.action, e.path, e.count ?? '', e.ok ? 'ok' : 'fail', e.error ?? ''].map(q).join(','))]
       .join('\n');
-    await navigator.clipboard.writeText(csv);
+    await copyToClipboard(csv);
     toast('✓ Log copied as CSV', 'success');
   });
   document.getElementById('logClear').addEventListener('click', async () => {
@@ -906,6 +1045,14 @@ document.getElementById('actionLogBtn').addEventListener('click', async () => {
     closePanel();
     toast('Action log cleared', 'info');
   });
+}
+
+document.getElementById('actionLogBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('mainPanel');
+  if (panel.classList.contains('open') && document.getElementById('panelTitle').textContent === 'Action History') {
+    closePanel(); return;
+  }
+  await renderActionLogPanel();
 });
 
 document.getElementById('dispatcherFlushBtn')?.addEventListener('click', async () => {
@@ -915,7 +1062,7 @@ document.getElementById('dispatcherFlushBtn')?.addEventListener('click', async (
   const confirmText = await confirmDestructive(label, path, { always: true });
   if (confirmText === null) return;
   toast('Flushing Dispatcher cache…', 'info');
-  const result = await msg('FLUSH_DISPATCHER', { path, invalidate: true, confirmText });
+  const result = await msg('FLUSH_DISPATCHER', { jcrPath: path, path, invalidate: true, confirmText });
   if (result.ok) toast('✓ Dispatcher cache invalidated', 'success');
   else failToast({ msg, toast }, `✗ Dispatcher flush failed: ${result.error}`, result);
 });
@@ -923,18 +1070,26 @@ document.getElementById('dispatcherFlushBtn')?.addEventListener('click', async (
 document.getElementById('findReplaceBtn')?.addEventListener('click', () => {
   if (!togglePanel('Find & Replace', 'findReplaceBtn')) return;
   const content = document.getElementById('panelContent');
-  const defaultPath = currentJcrPath || '/content';
+  const prof = resolveProfile(currentTab?.url || currentJcrPath || '', currentConfig?.profiles, currentConfig?.activeProfile);
+  const defaultPath = currentJcrPath || prof?.contentRoot || currentConfig?.contentRoot || '/content';
   content.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      <input type="text" id="frRootPath" class="search-input" value="${escAttr(defaultPath)}" placeholder="Scope root path (e.g. /content/site)" />
-      <input type="text" id="frSearchTerm" class="search-input" placeholder="Search text..." />
-      <input type="text" id="frReplaceTerm" class="search-input" placeholder="Replace with..." />
-      <input type="text" id="frPropName" class="search-input" placeholder="Property name filter (optional, e.g. jcr:title)" />
+    <div class="fr-form">
+      <input type="text" id="frRootPath" class="fr-input" value="${escAttr(defaultPath)}" placeholder="Scope root path (e.g. /content/site)" />
+      <input type="text" id="frSearchTerm" class="fr-input" placeholder="Search text..." />
+      <input type="text" id="frReplaceTerm" class="fr-input" placeholder="Replace with..." />
+      <input type="text" id="frPropName" class="fr-input" placeholder="Property name filter (optional, e.g. jcr:title)" />
+      <label class="fr-option-row" for="frCaseSensitive">
+        <span>Match case (exact casing)</span>
+        <span class="pop-toggle">
+          <input type="checkbox" id="frCaseSensitive" class="pop-toggle-input" />
+          <span class="pop-toggle-slider"></span>
+        </span>
+      </label>
       <div class="bulk-actions">
         <button class="url-open" id="frFindBtn">Find Matches</button>
         <button class="url-copy" id="frApplyBtn" style="display:none; margin-left:auto;">Apply Replacements</button>
       </div>
-      <div id="frResults" style="margin-top:8px; max-height:180px; overflow-y:auto;"></div>
+      <div id="frResults" class="fr-results"></div>
     </div>`;
 
   let currentMatches = [];
@@ -943,12 +1098,14 @@ document.getElementById('findReplaceBtn')?.addEventListener('click', () => {
     const rootPath = document.getElementById('frRootPath').value.trim() || '/content';
     const searchTerm = document.getElementById('frSearchTerm').value;
     const propertyName = document.getElementById('frPropName').value.trim();
+    const caseSensitive = !!document.getElementById('frCaseSensitive').checked;
     if (!searchTerm) return toast('Enter search text', 'warn');
 
     toast('Searching pages…', 'info');
     const r = await msg('FIND_ACROSS_PAGES', { rootPath, searchTerm, options: { propertyName } });
     if (!r.ok) return toast(`✗ ${r.error}`, 'error');
-    currentMatches = r.matches || [];
+    const rawMatches = r.matches || [];
+    currentMatches = caseSensitive ? rawMatches.filter((m) => m.oldValue.includes(searchTerm)) : rawMatches;
     const resultsBox = document.getElementById('frResults');
     const applyBtn = document.getElementById('frApplyBtn');
 
@@ -959,35 +1116,55 @@ document.getElementById('findReplaceBtn')?.addEventListener('click', () => {
     }
 
     applyBtn.style.display = '';
-    applyBtn.textContent = `Apply to ${currentMatches.length} match(es)`;
+    const updateApplyCount = () => {
+      const checkedCount = resultsBox.querySelectorAll('.fr-match-check:checked').length;
+      applyBtn.textContent = `Apply to ${checkedCount} match(es)`;
+      applyBtn.disabled = checkedCount === 0;
+    };
 
+    const re = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
     resultsBox.innerHTML = `<div class="list-head">Found ${currentMatches.length} match(es)</div>` +
-      currentMatches.map((m) => {
-        const preview = m.oldValue.replace(new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), (x) => `<mark style="background:var(--warn-bg); color:inherit;">${escHtml(x)}</mark>`);
+      currentMatches.map((m, idx) => {
+        const preview = m.oldValue.replace(re, (x) => `<mark style="background:var(--warnbg); color:inherit; border-radius:2px; padding:0 2px;">${escHtml(x)}</mark>`);
         return `
-          <div class="list-row" style="flex-direction:column; align-items:flex-start; gap:2px; font-size:11px;">
-            <span class="list-main"><b>${escHtml(m.propPath)}</b></span>
-            <span class="list-sub">${preview}</span>
-          </div>
+          <label class="list-row" style="align-items:flex-start; gap:7px; font-size:11px; cursor:pointer;">
+            <input type="checkbox" class="fr-match-check pop-checkbox" data-idx="${idx}" checked />
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="list-main"><b>${escHtml(m.propPath)}</b></span>
+              <span class="list-sub">${preview}</span>
+            </span>
+          </label>
         `;
       }).join('');
+    resultsBox.querySelectorAll('.fr-match-check').forEach((cb) => cb.addEventListener('change', updateApplyCount));
+    updateApplyCount();
   });
 
   document.getElementById('frApplyBtn').addEventListener('click', async () => {
+    const rootPath = document.getElementById('frRootPath').value.trim() || currentJcrPath || '/content';
     const searchTerm = document.getElementById('frSearchTerm').value;
     const replaceTerm = document.getElementById('frReplaceTerm').value;
-    if (!currentMatches.length) return;
-    if (!(await ui.confirm({ title: 'Apply Find & Replace', message: `Replace "${searchTerm}" with "${replaceTerm}" across ${currentMatches.length} property match(es)?`, tone: 'warn', confirmLabel: 'Replace All' }))) return;
+    const caseSensitive = !!document.getElementById('frCaseSensitive').checked;
+    const selectedIdxs = [...document.querySelectorAll('#frResults .fr-match-check:checked')].map((cb) => +cb.dataset.idx);
+    const chosen = selectedIdxs.map((i) => currentMatches[i]).filter(Boolean);
+    if (!chosen.length) return;
+    const confirmText = await confirmDestructive(
+      `Replace "${searchTerm}" with "${replaceTerm}" across ${chosen.length} selected match(es)?`,
+      rootPath,
+      { always: true },
+    );
+    if (confirmText === null) return;
 
-    const replacements = currentMatches.map((m) => ({
+    const re = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+    const replacements = chosen.map((m) => ({
       propPath: m.propPath,
-      newValue: m.oldValue.replaceAll(searchTerm, replaceTerm),
+      newValue: m.oldValue.replace(re, () => replaceTerm),
     }));
 
     toast('Applying replacements…', 'info');
-    const r = await msg('REPLACE_ACROSS_PAGES', { replacements });
+    const r = await msg('REPLACE_ACROSS_PAGES', { rootPath, jcrPath: rootPath, replacements, confirmText });
     if (r.ok) {
-      toast(`✓ Updated ${r.updatedCount || currentMatches.length} properties`, 'success');
+      toast(`✓ Updated ${r.updatedCount || chosen.length} properties`, 'success');
       document.getElementById('frResults').innerHTML = '<span class="list-sub">Replacements applied successfully.</span>';
       document.getElementById('frApplyBtn').style.display = 'none';
     } else {
@@ -996,11 +1173,202 @@ document.getElementById('findReplaceBtn')?.addEventListener('click', () => {
   });
 });
 
+// ─── QA Verification Tools (QA & Developer personas) ─────────────────────────
+
+const AUDIT_SYM = { pass: '✓', warn: '!', fail: '✗', info: 'i' };
+
+/** Requests DOM/broken-link/head-tag audit facts from the active tab and renders scored results. */
+async function runPopupAudit(applyVisualOnTab = false) {
+  if (!togglePanel('SEO & A11y Audit', 'qaAuditBtn')) return;
+  const content = document.getElementById('panelContent');
+  if (!currentTab?.id) {
+    content.textContent = 'No active browser tab.';
+    return;
+  }
+  const api = getExtApi();
+  let factsRes;
+  try {
+    factsRes = await api?.tabs?.sendMessage?.(currentTab.id, { action: 'COLLECT_AUDIT_FACTS' });
+  } catch {
+    factsRes = null;
+  }
+  if (!factsRes?.ok) {
+    content.innerHTML = '<span class="list-sub">Orbit toolbar is not active on this tab. Grant host permissions or open a configured AEM page to run DOM checks.</span>';
+    return;
+  }
+  if (applyVisualOnTab) {
+    try { await api.tabs.sendMessage(currentTab.id, { action: 'RUN_AUDIT' }); } catch { /* ignore */ }
+  }
+  const audit = await msg('EVALUATE_AUDIT', { facts: factsRes.facts });
+  if (!audit.ok) { content.textContent = `Error: ${audit.error}`; return; }
+  const levelCls = audit.score >= 85 ? 'ok' : audit.score >= 60 ? 'warn' : 'bad';
+  let group = '';
+  const rows = audit.checks.map((c) => {
+    const hd = c.group !== group ? `<div class="list-head">${escHtml((group = c.group))}</div>` : '';
+    const cls = c.status === 'pass' ? 'ok' : c.status === 'warn' ? 'warn' : c.status === 'fail' ? 'bad' : '';
+    return `${hd}<div class="list-row"><span class="list-tag ${cls}">${AUDIT_SYM[c.status] || '·'}</span><span class="list-main">${escHtml(c.message)}</span></div>`;
+  }).join('');
+  content.innerHTML = `
+    <div class="list-row" style="margin-bottom:6px;">
+      <span class="list-main"><b>Audit Score</b></span>
+      <span class="list-tag ${levelCls}">${audit.score}/100</span>
+      <button class="url-copy" id="qaAuditShowTab">Show on page</button>
+    </div>${rows}`;
+  document.getElementById('qaAuditShowTab')?.addEventListener('click', () => {
+    api?.tabs?.sendMessage?.(currentTab.id, { action: 'RUN_AUDIT' }).catch(() => {});
+  });
+}
+
+document.getElementById('qaAuditBtn')?.addEventListener('click', () => runPopupAudit(false));
+
+document.getElementById('qaCacheBtn')?.addEventListener('click', async () => {
+  if (!togglePanel('Cache Headers', 'qaCacheBtn')) return;
+  const content = document.getElementById('panelContent');
+  let targetUrl = currentTab?.url?.split('#')[0] || '';
+  if (currentJcrPath && (!targetUrl || targetUrl.includes('/editor.html/'))) {
+    const v = await msg('GET_URL_VARIANTS', { jcrPath: currentJcrPath });
+    targetUrl = v.liveUrl || v.dispatcherUrl || v.publishUrl || v.previewUrl || v.authorDisabledUrl || targetUrl;
+  }
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    content.innerHTML = '<span class="list-sub">No HTTP URL available for cache inspection.</span>';
+    return;
+  }
+  let res;
+  try {
+    const sig = createTimeoutSignal(10000);
+    res = await fetch(targetUrl, { method: 'HEAD', cache: 'no-store', signal: sig.signal });
+    if (res.status === 405) res = await fetch(targetUrl, { method: 'GET', cache: 'no-store', signal: createTimeoutSignal(10000).signal });
+  } catch (e) {
+    content.textContent = `Request failed: ${e?.message || 'network error'}`;
+    return;
+  }
+  const h = (k) => res.headers.get(k) || '';
+  const xc = `${h('x-cache')} ${h('x-cache-status')} ${h('cf-cache-status')}`.toUpperCase();
+  const verdict = (/HIT/.test(xc) || Number(h('age')) > 0)
+    ? `CDN HIT${h('age') ? ` (age ${h('age')}s)` : ''}`
+    : (/MISS|PASS/.test(xc) ? 'CDN MISS (origin)' : 'No CDN indicators');
+  const interesting = /^(age|cache-control|surrogate-control|cdn-cache-control|expires|etag|last-modified|vary|via|server|content-type|x-.*)$/i;
+  const headers = [...res.headers.entries()].filter(([k]) => interesting.test(k)).sort(([a], [b]) => a.localeCompare(b));
+  content.innerHTML = `
+    <div class="list-sub" style="margin-bottom:6px; word-break:break-all;">${escHtml(targetUrl)}</div>
+    <div class="list-row"><span class="list-main"><b>HTTP ${res.status}</b></span><span class="list-tag">${escHtml(verdict)}</span></div>` +
+    (headers.map(([k, v]) => `<div class="jcr-row"><span class="jcr-key">${escHtml(k)}</span><span class="jcr-val">${escHtml(v)}</span></div>`).join('')
+      || '<span class="list-sub">No cache headers exposed.</span>');
+});
+
+document.getElementById('qaReadinessBtn')?.addEventListener('click', async () => {
+  if (!togglePanel('QA Readiness', 'qaReadinessBtn')) return;
+  const content = document.getElementById('panelContent');
+  if (!currentJcrPath) { content.textContent = 'No JCR path available for readiness check.'; return; }
+  const api = getExtApi();
+  const [st, queue, refs, factsRes] = await Promise.all([
+    msg('GET_PAGE_STATUS', { jcrPath: currentJcrPath }),
+    msg('GET_REPLICATION_QUEUE'),
+    msg('CHECK_REFERENCES', { jcrPath: currentJcrPath }),
+    currentTab?.id ? api?.tabs?.sendMessage?.(currentTab.id, { action: 'COLLECT_AUDIT_FACTS' }).catch(() => null) : null,
+  ]);
+  const audit = factsRes?.ok ? await msg('EVALUATE_AUDIT', { facts: factsRes.facts }) : null;
+  const row = (name, ok, tag, detail = '') => `
+    <div class="list-row">
+      <span class="list-main"><b>${escHtml(name)}</b>${detail ? ` <span class="list-sub">${escHtml(detail)}</span>` : ''}</span>
+      <span class="list-tag ${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}">${escHtml(tag)}</span>
+    </div>`;
+  const checks = [
+    row('Publish Status', st?.status === 'published', st?.status || 'unknown', st?.error || ''),
+    ...(currentConfig?.environments?.[currentEnv]?.previewHost
+      ? [row('Preview Status', st?.previewStatus === 'published', st?.previewStatus || 'unknown')] : []),
+    row('Replication Queue', queue?.queueStatus === 'idle', queue?.queueStatus || 'unknown', queue?.queueCount ? `${queue.queueCount} item(s)` : ''),
+    row('Unpublished Refs', !refs?.warning, refs?.warning ? 'warn' : 'clean', refs?.warning || ''),
+    audit ? row('SEO & A11y Audit', audit.score >= 85 ? true : audit.score >= 60 ? null : false, `${audit.score}/100`, `${audit.summary?.fails || 0} fail, ${audit.summary?.warns || 0} warn`)
+      : row('SEO & A11y Audit', null, 'tab n/a', 'Toolbar not active on current tab'),
+  ];
+  content.innerHTML = `<div class="list-head">Environment: ${escHtml(envLabel(currentEnv).toUpperCase())}</div>${checks.join('')}`;
+});
+
+// ─── Env & Persona Switchers inside Popup Header ──────────────────────────────
+
+function closeDropdowns() {
+  document.getElementById('envDropdown').hidden = true;
+  document.getElementById('personaDropdown').hidden = true;
+  document.getElementById('envBadge')?.setAttribute('aria-expanded', 'false');
+  document.getElementById('personaBadge')?.setAttribute('aria-expanded', 'false');
+}
+
+document.getElementById('envBadge')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('envDropdown');
+  const open = dd.hidden;
+  closeDropdowns();
+  if (!open || !currentConfig?.environments) return;
+  const envs = currentConfig.environments;
+  const order = (currentConfig.envOrder?.length ? currentConfig.envOrder : Object.keys(envs))
+    .filter((k) => envs[k] && (envs[k].authorHost || envs[k].publishHost || envs[k].previewHost || envs[k].dispatcherHost));
+  const badgeRect = e.currentTarget.getBoundingClientRect();
+  dd.style.left = `${Math.max(8, badgeRect.left)}px`;
+  dd.style.right = 'auto';
+  dd.innerHTML = order.map((k) => `
+    <button class="pop-drop-item ${k === currentEnv ? 'active' : ''}" data-env="${escAttr(k)}" type="button" role="menuitemradio">
+      <span>${escHtml(envLabel(k).toUpperCase())}</span>
+      ${envs[k]?.protected ? '<span class="list-tag bad">Protected</span>' : ''}
+    </button>
+  `).join('');
+  dd.querySelectorAll('[data-env]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      currentEnv = btn.dataset.env;
+      loginPrompted = false;
+      closeDropdowns();
+      closePanel();
+      applyEnvUiState(currentConfig);
+      await refreshStatus();
+      toast(`Popup now targets ${envLabel(currentEnv).toUpperCase()}`, 'info');
+    });
+  });
+  dd.hidden = false;
+  e.currentTarget.setAttribute('aria-expanded', 'true');
+});
+
+document.getElementById('personaBadge')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (currentConfig?.lockConfiguration) return toast('Persona is locked by administrator policy', 'warn');
+  const dd = document.getElementById('personaDropdown');
+  const open = dd.hidden;
+  closeDropdowns();
+  if (!open) return;
+  const allowed = personaState.allowedPersonas || [];
+  if (allowed.length <= 1) return toast('Only one persona is permitted by policy', 'warn');
+  const rect = e.currentTarget.getBoundingClientRect();
+  dd.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+  dd.style.left = 'auto';
+  dd.innerHTML = allowed.map((p) => `
+    <button class="pop-drop-item ${p === personaState.persona ? 'active' : ''}" data-persona-pick="${p}" type="button" role="menuitemradio">
+      <span>${escHtml(PERSONA_DEFS[p].label)}</span>
+      <span class="list-sub">${p === personaState.persona ? '✓' : ''}</span>
+    </button>
+  `).join('');
+  dd.querySelectorAll('[data-persona-pick]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const next = btn.dataset.personaPick;
+      closeDropdowns();
+      const res = await msg('SET_PERSONA', { persona: next });
+      if (!res.ok) return toast(`✗ ${res.error}`, 'error');
+      const fresh = await msg('GET_CONFIG');
+      currentConfig = fresh;
+      closePanel();
+      applyEnvUiState(currentConfig);
+      toast(`✓ Switched to ${PERSONA_DEFS[next].label} persona`, 'success');
+    });
+  });
+  dd.hidden = false;
+  e.currentTarget.setAttribute('aria-expanded', 'true');
+});
+
+document.addEventListener('click', closeDropdowns);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDropdowns(); });
 
 // Copy JCR path by clicking the path display
 const copyJcrPath = async () => {
   if (!currentJcrPath) return;
-  await navigator.clipboard.writeText(currentJcrPath);
+  await copyToClipboard(currentJcrPath);
   toast('✓ JCR path copied', 'success');
 };
 document.getElementById('jcrPath').addEventListener('click', copyJcrPath);
