@@ -3,7 +3,7 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { listTargets, Target } from '../lib/cdp.mjs'
+import { listTargets, newTab, Target } from '../lib/cdp.mjs'
 import { synth } from '../lib/narrate.mjs'
 import { logoSpiralPaths } from '../../src/shared/spiral.js'
 
@@ -35,8 +35,9 @@ for (const seg of SEGMENTS) {
 
 const targets = await listTargets()
 const tabInfo = targets.find((t) => t.type === 'page')
-if (!tabInfo) throw new Error('No Chrome page found on port 9333')
-const tab = await new Target(tabInfo).open()
+const tab = tabInfo ? await new Target(tabInfo).open() : await newTab('about:blank')
+await tab.send('Page.enable')
+await tab.send('Runtime.enable')
 await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false })
 
 const spiralSvg = logoSpiralPaths()
@@ -112,8 +113,96 @@ await captureHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   </div>
 </body></html>`, introCardFile, false)
 
+const TUTORIAL_URL = 'https://iam-udit.github.io/aem-orbit/tutorial/#00-intro'
+const tutorialRawFile = path.join(WORK, 'tutorial-page-raw.png')
+await tab.send('Emulation.setDefaultBackgroundColorOverride')
+await tab.send('Emulation.setDeviceMetricsOverride', { width: 1480, height: 860, deviceScaleFactor: 1, mobile: false })
+await tab.send('Page.navigate', { url: TUTORIAL_URL })
+for (let i = 0; i < 40; i++) {
+  await tab.eval(`document.querySelectorAll('#chapters img').forEach((im) => { if (im.loading !== 'eager') im.loading = 'eager'; })`).catch(() => {})
+  const ready = await tab.eval(`document.readyState === 'complete' && document.querySelectorAll('#chapters img').length >= 13 && [...document.querySelectorAll('#chapters img')].every((im) => im.complete && im.naturalWidth > 0)`).catch(() => false)
+  if (ready) break
+  await new Promise((r) => setTimeout(r, 250))
+}
+await tab.eval(`(() => {
+  document.getElementById('fallback')?.remove();
+  const v = document.getElementById('player');
+  if (v) v.removeAttribute('src');
+  document.documentElement.style.scrollbarWidth = 'none';
+})()`).catch(() => {})
+await new Promise((r) => setTimeout(r, 900))
+const rawShot = await tab.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false })
+fs.writeFileSync(tutorialRawFile, Buffer.from(rawShot.data, 'base64'))
+await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false })
+
+const tutorialShotB64 = fs.readFileSync(tutorialRawFile).toString('base64')
 const tutorialCardFile = path.join(WORK, 'tutorial-card.png')
-await captureHtml(`<!DOCTYPE html><html><body style="margin:0;width:1920px;height:1080px;background:#0a0d14;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:-apple-system,sans-serif;color:#fff"><h1 style="font-size:56px;margin:0 0 18px">13-Chapter AEM Orbit Masterclass</h1><p style="font-size:26px;color:#93c5fd;margin:0">iam-udit.github.io/aem-orbit/tutorial/</p></body></html>`, tutorialCardFile, false)
+await captureHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; width: 1920px; height: 1080px; background: #0c0d10; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 26px 60px 30px; gap: 18px; position: relative;
+  }
+  .glow {
+    position: absolute; width: 1120px; height: 1120px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(235, 16, 0, 0.28) 0%, rgba(12, 13, 16, 0) 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .header {
+    position: relative; z-index: 10; display: flex; align-items: center; gap: 14px;
+  }
+  .pill-tag {
+    padding: 5px 14px; border-radius: 999px;
+    background: rgba(235, 16, 0, 0.16); border: 1px solid rgba(235, 16, 0, 0.45);
+    color: #ff8a80; font-size: 15px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  h1 {
+    margin: 0; color: #ffffff; font-size: 38px; font-weight: 800; letter-spacing: -0.9px;
+  }
+  .browser {
+    position: relative; z-index: 10; width: 1510px;
+    border-radius: 16px; overflow: hidden;
+    background: #15161b;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 28px 86px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+  .chrome-bar {
+    height: 40px; padding: 0 16px;
+    background: #191b22; border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .dots { display: flex; gap: 8px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .addr {
+    flex: 1; max-width: 680px; margin: 0 auto; height: 26px; padding: 0 14px;
+    border-radius: 999px; background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: #cbd5e1; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .lock { color: #4ade80; font-weight: 700; }
+  .shot { display: block; width: 1510px; height: 877px; object-fit: cover; object-position: top; }
+</style></head><body>
+  <div class="glow"></div>
+  <div class="header">
+    <span class="pill-tag">GitHub Pages</span>
+    <h1>13-Chapter AEM Orbit Masterclass</h1>
+  </div>
+  <div class="browser">
+    <div class="chrome-bar">
+      <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+      <div class="addr"><span class="lock">HTTPS</span><span>iam-udit.github.io/aem-orbit/tutorial/#00-intro</span></div>
+      <div style="width:49px"></div>
+    </div>
+    <img class="shot" src="data:image/png;base64,${tutorialShotB64}" />
+  </div>
+</body></html>`, tutorialCardFile, false)
 
 const outroCardFile = path.join(WORK, 'outro-card.png')
 await captureHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
