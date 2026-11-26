@@ -26,7 +26,7 @@
       topics: ['Dragging to all corners and screen edges; radial fan flips orientation', 'Per-domain position persistence across page reloads', 'Long-press pointer summon and Esc dismissal', 'Radial Orb versus classic horizontal Mini-Bar across browsers'],
     },
     {
-      id: '02-toolbar', label: '2', title: 'Toolbar & Personas', duration: 210,
+      id: '02-toolbar', label: '2', title: 'Toolbar & Personas', duration: 212,
       description: 'Expanded toolbar with live More-menu persona switching, tiers, cross-env jumps, viewport-bounded scrollable locales, and toasts.',
       topics: ['Live persona switching (QA vs Custom) directly from the More menu', 'Tier switcher: Edit, View, Preview, Published, Live CDN', 'Environment chip with Shift-click and Cmd-click new tab behavior', 'Viewport-bounded scrollable Language Masters and 20-locale MSM lists', 'Live details panel and action toasts with instantaneous Undo'],
     },
@@ -41,7 +41,7 @@
       topics: ['Viewport-bounded JCR tree with Expand All, Collapse All, search & path copy', 'Cross-environment SHA-256 comparison and Stage vs Dev property diff', 'Component inspector with CRXDE Lite, Model JSON & Infinity JSON links', 'Highlight components and DAM / Content Fragment headless JSON inspectors', 'Developer links, CDN cache header HIT/MISS inspection, hard reload & overlays'],
     },
     {
-      id: '05-sync', label: '5', title: 'Content Synchronization', duration: 93,
+      id: '05-sync', label: '5', title: 'Content Synchronization', duration: 94,
       description: 'Guardrailed cross-environment sync: downward Pull/Push safety, pre-sync diff, automatic version backup, and instant rollback.',
       topics: ['1-click content sync between environments without CRX packages', 'Direction safety: higher -> lower protection vs upward override', 'Pre-sync visual property diff before writing target node', 'Automatic timestamped AEM version snapshot and instant Undo rollback', 'Pre-stage 404 to post-stage page creation from Prod CDN to Local'],
     },
